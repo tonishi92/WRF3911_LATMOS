@@ -1155,6 +1155,9 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                      SR=SR,                              &
 !                    ccntype  = ccntype,                 &
                      Zet      = refl_10cm,               & ! HM, 9/22/09 for refl
+#if ( WRF_CHEM == 1)
+                  chem   = chem,                                     &
+#endif
                   IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde, &
                   IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme, &
                   ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte  &

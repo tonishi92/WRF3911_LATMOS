@@ -962,6 +962,12 @@ SUBROUTINE aerosols_soa_vbs_init_aercld_ptrs(   &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
                qlsink,precr,preci,precs,precg,qsrflx,                      &
                gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                                    &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -1011,6 +1017,14 @@ SUBROUTINE aerosols_soa_vbs_init_aercld_ptrs(   &
                                                     rho_phy,cldfra
    REAL, DIMENSION( ims:ime, jms:jme, num_chem ),          &
          INTENT(OUT ) ::                                qsrflx ! column change due to scavening
+!!lm
+!   REAL, DIMENSION( ims:ime, jms:jme ),          &
+!         INTENT(INOUT ) ::                   wet_dep_bc
+!!lm
+!ND add all the species for wet deposition
+   REAL, DIMENSION( ims:ime, 1, jms:jme, num_chem ),          &
+         INTENT(INOUT ) ::   wetd_ct
+!ND
 
    call wetscav (id,ktau,dtstep,ktauc,config_flags,                     &
         dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,            &
@@ -1022,6 +1036,12 @@ SUBROUTINE aerosols_soa_vbs_init_aercld_ptrs(   &
         volumcen_sect, volumlo_sect, volumhi_sect,                      &
         waterptr_aer, dens_water_aer,                                   &
         scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd,dlndg_nimptblgrow, &
+!!lm
+!        wet_dep_bc,                                                     &
+!!lm
+!ND add all the species for wet deposition
+       wetd_ct,                                                         &
+!ND
         ids,ide, jds,jde, kds,kde,                                      &
         ims,ime, jms,jme, kms,kme,                                      &
         its,ite, jts,jte, kts,kte                                       )
@@ -1032,6 +1052,12 @@ SUBROUTINE aerosols_soa_vbs_init_aercld_ptrs(   &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
                qlsink,precr,preci,precs,precg,qsrflx,                      &
                gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                                    &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -1080,6 +1106,14 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),          &
                                                     rho_phy,cldfra
    REAL, DIMENSION( ims:ime, jms:jme, num_chem ),          &
          INTENT(OUT ) ::                                qsrflx ! column change due to scavening
+!!lm
+!   REAL, DIMENSION( ims:ime, jms:jme),          &
+!         INTENT(OUT ) :: wet_dep_bc
+!!lm
+!ND add all the species for wet deposition
+   REAL, DIMENSION( ims:ime, 1, jms:jme, num_chem ),          &
+         INTENT(INOUT ) ::   wetd_ct
+!ND
 
    call wetscav (id,ktau,dtstep,ktauc,config_flags,                     &
         dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,            &
@@ -1091,6 +1125,12 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),          &
         volumcen_sect, volumlo_sect, volumhi_sect,                      &
         waterptr_aer, dens_water_aer,                                   &
         scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd,dlndg_nimptblgrow, &
+!!lm
+!        wet_dep_bc,                                                      &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                                    &
+!ND
         ids,ide, jds,jde, kds,kde,                                      &
         ims,ime, jms,jme, kms,kme,                                      &
         its,ite, jts,jte, kts,kte                                       )

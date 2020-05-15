@@ -1,7 +1,22 @@
     MODULE module_dep_simple
 
+!lm Louis Marelle 2016/5/11: Add cases for deposition over snow and ice in CBMZ-MOSAIC 
+!   and SAPRC-MOSAIC mechanisms
+!lm Louis Marelle 2016/5/11: Also use the wrf_season external file for setting iseason 
+! when using CBMZ-MOSAIC and SAPRC99-MOSAIC mechanisms. I think this should be used for 
+! all mechanisms, because the alternative case is quite bad (assumes NH
+! midlatitudes in spring/summer/fall, no snow on ground)
+
+
       IMPLICIT NONE
 
+!lm 2014/10: I now use the wrf_season netcdf file for SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP 
+!            (in order to improve the seasonal variation of drydep)
+!lm 2015/7: Added deposition velocity (=0) for DMS for SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP 
+!           (I also added DMS reactions to KPP for this mech)
+!lm 2015/7: Added a case for deposition over sea ice
+!lm the test julday < 90 .or. julday > 270 should probably be made more generic
+!(southern hemisphere domains would get the seasonality backwards)
 !--------------------------------------------------
 ! many of these parameters will depend on the RADM mechanism!
 ! if you change it, lets talk about it and get it done!!!
@@ -72,6 +87,9 @@ SUBROUTINE wesely_driver( id, ktau, dtstep, config_flags, current_month,  &
                           aer_res_zcen, ivgtyp, tsk, gsw, vegfra, pbl,    &
                           rmol, ust, znt, xlat, xlong,                    &
                           z, z_at_w, snowh, numgas,                       &
+!lm Add a case for deposition over ice in CBMZ-MOSAIC and SAPRC-MOSAIC mechanisms
+                          xice,                                           &
+!lm
                           ids,ide, jds,jde, kds,kde,                      &
                           ims,ime, jms,jme, kms,kme,                      &
                           its,ite, jts,jte, kts,kte                       )
@@ -135,6 +153,11 @@ SUBROUTINE wesely_driver( id, ktau, dtstep, config_flags, current_month,  &
    REAL, intent(inout) ::                            aer_res_def(its:ite,jts:jte)
    REAL, intent(inout) ::                            aer_res_zcen(its:ite,jts:jte)
    REAL,  optional, INTENT(IN)  ::                   snowh(ims:ime,jms:jme)
+!lm Add a case for deposition over ice in CBMZ-MOSAIC and SAPRC-MOSAIC
+!mechanisms
+   REAL,  DIMENSION( ims:ime , jms:jme ), INTENT(IN   ) :: xice
+!lm
+
    TYPE(grid_config_rec_type),  INTENT(IN) ::        config_flags
 
 !--------------------------------------------------
@@ -168,7 +191,22 @@ SUBROUTINE wesely_driver( id, ktau, dtstep, config_flags, current_month,  &
       if( config_flags%chem_opt /= MOZART_KPP .and. &
           config_flags%chem_opt /= MOZCART_KPP .and. &
           config_flags%chem_opt /= MOZART_MOSAIC_4BIN_KPP .and. &
-          config_flags%chem_opt /= MOZART_MOSAIC_4BIN_AQ_KPP) then
+!lm Also use the wrf_season external file for setting iseason when using
+! CBMZ-MOSAIC and SAPRC99-MOSAIC mechanisms. 
+          config_flags%chem_opt /= MOZART_MOSAIC_4BIN_AQ_KPP .and. &
+          config_flags%chem_opt /= CBMZ_MOSAIC_4BIN .and. &
+          config_flags%chem_opt /= CBMZ_MOSAIC_8BIN .and. &
+          config_flags%chem_opt /= CBMZ_MOSAIC_4BIN_AQ .and. &
+          config_flags%chem_opt /= CBMZ_MOSAIC_8BIN_AQ .and. &
+          config_flags%chem_opt /= CBMZ_MOSAIC_DMS_4BIN .and.&
+          config_flags%chem_opt /= CBMZ_MOSAIC_DMS_8BIN .and. &
+          config_flags%chem_opt /= CBMZ_MOSAIC_KPP .and. &
+          config_flags%chem_opt /= CBMZ_MOSAIC_DMS_4BIN_AQ .and. &
+          config_flags%chem_opt /= CBMZ_MOSAIC_DMS_8BIN_AQ .and. &
+          config_flags%chem_opt /= SAPRC99_MOSAIC_4BIN_VBS2_KPP .and. &
+          config_flags%chem_opt /= SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP .and. &
+          config_flags%chem_opt /= SAPRC99_MOSAIC_8BIN_VBS2_KPP) then
+!lm
          if( julday < 90 .or. julday > 270 ) then
             iseason = 2
             CALL wrf_debug(15,'setting iseason to 2')
@@ -197,6 +235,33 @@ tile_lon_loop : &
                   iseason = 4
                endif
             end if
+!lm Also use the wrf_season external file for setting iseason when using
+! CBMZ-MOSAIC and SAPRC99-MOSAIC mechanisms. 
+            if( config_flags%chem_opt == CBMZ_MOSAIC_4BIN .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_8BIN .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_4BIN_AQ .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_8BIN_AQ .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_KPP .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN_AQ .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ .or. &
+                config_flags%chem_opt == SAPRC99_MOSAIC_4BIN_VBS2_KPP .or. &
+                config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP .or. &
+                config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_KPP) then
+               ! Add cases for deposition over snow and ice in CBMZ-MOSAIC and
+               ! SAPRC-MOSAIC mechanisms
+               if( snowh(i,j) < .01 ) then
+                  iseason = seasonal_pft(id)%seasonal_wes(i,j,iland,current_month)
+               else
+                 iseason = 4
+               endif
+               if( xice(i,j) >= .15 ) then
+                 iland = 8
+                 iseason = 4
+               endif
+            end if
+!lm
             ta    = tsk(i,j)
             rad   = gsw(i,j)
             vegfrac = vegfra(i,j)
@@ -334,6 +399,30 @@ tile_lon_loop : &
             end do
          end do
       end if
+
+
+!lm
+     if(  config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP ) then
+       do j=jts,jte
+          do i=its,ite
+               ddvel(i,j,p_dms)         = 0.
+               ddvel(i,j,p_mvk)         = 0. !not sure about this one
+!from MOZART
+               ddvel(i,j,p_c2h6)    = 0.
+               ddvel(i,j,p_c3h6)    = 0.
+               ddvel(i,j,p_c3h8)    = 0.
+               ddvel(i,j,p_mek)     = 0.
+!not sure here, MOZART says 0, but can be calculated (probably ~ 0)
+               ddvel(i,j,p_ch4)         = 0.
+!not sure here, MOZART says 0, but can be calculated (probably ~ 0)
+               ddvel(i,j,p_co2)     = 0.
+!from CRIMECH and RADM2:
+               ddvel(i,j,p_hcl)     = ddvel(i,j,p_hno3)
+          end do
+        end do
+      end if
+!lm
+
 !!!!TUCCELLA
      if  (config_flags%chem_opt == RACM_SOA_VBS_KPP .OR.           &
           config_flags%chem_opt == RACM_SOA_VBS_AQCHEM_KPP) then
@@ -1609,8 +1698,24 @@ include 'netcdf.inc'
       if( config_flags%chem_opt == MOZART_KPP .or. &
           config_flags%chem_opt == MOZCART_KPP .or. &
           config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
-          config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
-         call wrf_message( 'dep_init: mozart,mozcart chem option requires netcdf' )
+!lm Also use the wrf_season external file for setting iseason when using
+! CBMZ-MOSAIC and SAPRC99-MOSAIC mechanisms. 
+!          config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+!         call wrf_message( 'dep_init: mozart,mozcart chem option requires netcdf' )
+          config_flags%chem_opt == CBMZ_MOSAIC_4BIN .or. &
+          config_flags%chem_opt == CBMZ_MOSAIC_8BIN .or. &
+          config_flags%chem_opt == CBMZ_MOSAIC_4BIN_AQ .or. &
+          config_flags%chem_opt == CBMZ_MOSAIC_8BIN_AQ .or. &
+          config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN .or. &
+          config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN .or. &
+          config_flags%chem_opt == CBMZ_MOSAIC_KPP .or. &
+          config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN_AQ .or. &
+          config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ .or. &
+          config_flags%chem_opt == SAPRC99_MOSAIC_4BIN_VBS2_KPP .or. &
+          config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP .or. &
+          config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_KPP) then
+         call wrf_message( 'dep_init: mozart,mozcart,cbmz-mosaic and saprc99-mosaic chem option requires netcdf' )
+!lm
          call wrf_abort
       end if
 #endif
@@ -2134,6 +2239,9 @@ is_cbm4_kpp : &
         if(p_ch4 > 1) then 
            hstar(p_ch4) = 1.50E-3
            dhr(p_ch4)   = 0.
+!lm from r sander, henry's law constants
+!           dhr(p_ch4)   = 1700.
+!lm
            f0(p_ch4)    = 0.
            dvj(p_ch4)   = 0.250
         end if
@@ -3018,6 +3126,31 @@ is_cbm4_kpp : &
           dvj(p_bzco_o2) = 1.000E-01
           dvj(p_ma_rco3) = 1.420E-01
           endif
+
+!lm missing SAPRC99 values
+     if (config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP) then
+!acet from MOZART
+   hstar(p_acet)    = 27.
+     dhr(p_acet)    = 5300.
+    f0(p_acet)    = small_value
+     dvj(p_acet)    = 0.1312
+!hcooh from crimech
+    hstar(p_hcooh) = 311.
+   dhr(p_hcooh) =  5241.
+   f0(p_hcooh) = .1
+    dvj(p_hcooh) = 0.098
+!meoh from crimech & MOZART (ch3oh)
+    hstar(p_meoh)   = 220.
+   dhr(p_meoh)   = 4934.
+    f0(p_meoh)   = small_value
+  dvj(p_meoh)   = 0.1767
+!cres from csl
+  hstar(p_cres) = 4.00E+5
+   dhr(p_cres) = 0.
+   f0(p_cres) = 0.
+  dvj(p_cres) = 0.096
+     end if
+!lm
 
 !hstar for SOA species assumed 2700 following CMU approach
      if(p_pcg1_b_c.gt.1)  hstar(p_pcg1_b_c) =2.7E+3
@@ -3985,7 +4118,23 @@ is_mozart : &
       if( config_flags%chem_opt == MOZART_KPP .or. &
           config_flags%chem_opt == MOZCART_KPP .or. &
           config_flags%chem_opt == MOZART_MOSAIC_4BIN_KPP .or. &
-          config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+!lm Also use the wrf_season external file for setting iseason when using
+! CBMZ-MOSAIC and SAPRC99-MOSAIC mechanisms. 
+!          config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP ) then
+                config_flags%chem_opt == MOZART_MOSAIC_4BIN_AQ_KPP .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_4BIN .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_8BIN .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_4BIN_AQ .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_8BIN_AQ .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_KPP .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN_AQ .or. &
+                config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ .or. &
+                config_flags%chem_opt == SAPRC99_MOSAIC_4BIN_VBS2_KPP .or. &
+                config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP .or. &
+                config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_KPP) then
+!lm
 !---------------------------------------------------------------------
 !	... allocate column_density type
 !---------------------------------------------------------------------

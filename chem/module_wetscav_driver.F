@@ -6,6 +6,12 @@
 !
 ! MOSAIC module: see module_mosaic_driver.F for references and terms of use
 !**********************************************************************************  
+!lm 2015/09: rewrote the way the impact scavenging for subgrid clouds is done.
+!WARNING !! Put a namelist flag test somewhere, since using this with something
+!else than KFCuP will, at best, waste resources
+!lm 2015/07: BC deposited by wet scavenging is now accumulated in the 
+!            diagnosis variable wet_dep_bc
+!
 
 MODULE module_wetscav_driver
 
@@ -38,6 +44,12 @@ CONTAINS
                f_ice_phy,f_rain_phy,cldfrai,cldfral,cldfra_mp_all,         &
                is_CAMMGMP_used,                                            &
 !======================================================================================
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                         &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -266,6 +278,15 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme, pcnst )         ,        &
           INTENT(OUT  ) ::                                          &
                                                         fracis3d
+!!lm
+!   REAL, DIMENSION( ims:ime, jms:jme),          &
+!         INTENT(OUT ) :: wet_dep_bc
+!!lm
+!ND IC added so4 and no3
+!ND add all the species for wet deposition
+   REAL, DIMENSION( ims:ime, 1, jms:jme, num_chem),          &
+         INTENT(OUT ) ::  wetd_ct
+!ND
 
 ! LOCAL  VAR
    integer :: ii,jj,kk
@@ -273,6 +294,9 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
    REAL ::  tmp_minval = 1.0e7
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme ) :: rainrate, evaprate
 
+!lm for cup wet removal
+!   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme ) :: qlsink_0,precs_0,precg_0
+!lm
 !
 ! Wet deposition over the current time step
 !
@@ -300,6 +324,12 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
                qlsink,precr,preci,precs,precg, qsrflx,                     &
                gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                         &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -322,6 +352,12 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
                qlsink,precr,preci,precs,precg, qsrflx,                     &
                gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                         &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -343,6 +379,12 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
                qlsink,precr,preci,precs,precg, qsrflx,                     &
                gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                         &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -368,6 +410,12 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
                qlsink,precr,preci,precs,precg, qsrflx,                     &
                gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                         &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -427,6 +475,12 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
                qlsink,precr,preci,precs,precg, qsrflx,                     &
                gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                         &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )

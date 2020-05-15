@@ -15,6 +15,7 @@
 #  define gridMub(...) (grid%c1f(k)*XXPCBFXX(__VA_ARGS__)+grid%c2f(k))
 #  define XXPCBFXX(...) grid%Mub(__VA_ARGS__)
 #endif
+#define BPRC_MODS
 
 !REAL:MODEL_LAYER:INITIALIZATION
 
@@ -3015,6 +3016,11 @@ integer::oops1,oops2
       CALL adjust_for_seaice_pre ( grid%xice , grid%landmask , grid%tsk , grid%ivgtyp , grid%vegcat , grid%lu_index , &
                                    grid%xland , grid%landusef , grid%isltyp , grid%soilcat , grid%soilctop , &
                                    grid%soilcbot , grid%tmn , &
+#ifdef BPRC_MODS
+! bai ========================================================================20151013
+                                   grid%icedepth , grid%snowsi , grid%albsi, &
+! ================================================================================
+#endif
                                    grid%seaice_threshold , &
                                    config_flags%fractional_seaice, &
                                    num_veg_cat , num_soil_top_cat , num_soil_bot_cat , &
@@ -3396,6 +3402,11 @@ integer::oops1,oops2
                                     model_config_rec%num_soil_layers , &
                                     grid%iswater , grid%isice , &
                                     model_config_rec%sf_surface_physics(grid%id) , &
+#ifdef BPRC_MODS
+! bai ========================================================================20151013
+                                    grid%icedepth , grid%snowsi , grid%albsi, &
+! ================================================================================
+#endif
                                     ids , ide , jds , jde , kds , kde , &
                                     ims , ime , jms , jme , kms , kme , &
                                     its , ite , jts , jte , kts , kte )
@@ -5762,11 +5773,19 @@ end function skip_middle_points_t
             outer : DO ko = kinterp_start , kinterp_end-1
                IF ( ( ABS(ordered_porig(ko) - ordered_porig(ko+1)) .LT. MAX(zap_close_levels/10,50.) ) .AND. &
                     ( ordered_porig(ko) .GT. zap_close_levels * 10 ) ) THEN
+#ifdef BPRC_MODS
+                 ! WRITE ( message , FMT='(a,I2.2,a,F9.2,a,F9.2,a,i4,a,i4,a,a)' ) '*** -> Check your wrfinput_d',id, &
+                 !                                                   ' file, you might have input pressure levels too close together (',&
+                 !                                                   ordered_porig(ko),' Pa and ', ordered_porig(ko+1), &
+                 !                                                   ' Pa) at (',i,',',j,') for variable type ',var_type
+                 !    CALL wrf_message ( TRIM(message) ) 
+#else
                   WRITE ( message , FMT='(a,I2.2,a,F9.2,a,F9.2,a,i4,a,i4,a,a)' ) '*** -> Check your wrfinput_d',id, &
                                                                     ' file, you might have input pressure levels too close together (',&
                                                                     ordered_porig(ko),' Pa and ', ordered_porig(ko+1), &
                                                                     ' Pa) at (',i,',',j,') for variable type ',var_type
                      CALL wrf_message ( TRIM(message) ) 
+#endif
                   EXIT outer
                END IF
             END DO outer

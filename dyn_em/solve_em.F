@@ -1,5 +1,6 @@
 !WRF:MEDIATION_LAYER:SOLVER
 
+!lm 2015/09: added msft, cldfra_cup, htop and shall from KFCuP as input to the lightning driver
 SUBROUTINE solve_em ( grid , config_flags  &
 ! Arguments generated from Registry
 #include "dummy_new_args.inc"

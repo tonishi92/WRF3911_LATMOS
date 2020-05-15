@@ -12,6 +12,11 @@
 ! modules with mixactivate in the physics directory. Due to compiling
 ! dependencies, these cannot be placed in module_mixactivate.
 !----------------------------------------------------------------------
+!ND 2016/04: Added all dry and wet deposition diagnostic variables for SAPRC99
+!            chemical mechanism and removed previously added diagnostics for 
+!            deposision
+!lm 2015/07: Added a diagnostic variable, dry_dep_bc, representing accumulated
+!            bc deposition (µg m-2) due to dry dep
 
 MODULE module_mixactivate_wrappers
 
@@ -24,14 +29,68 @@ CONTAINS
            rho_phy, t_phy, w, cldfra, cldfra_old,            &
            ddvel, z, dz8w, p_at_w, t_at_w, exch_h,           &
            qv, qc, qi, qndrop3d, f_qc, f_qi, chem,           &
-	       ccn1, ccn2, ccn3, ccn4, ccn5, ccn6, nsource,      &
-	       qsrflx, &
+	   ccn1, ccn2, ccn3, ccn4, ccn5, ccn6, nsource,      &
+!lm
+           dryd_ct, &
+!lm
+	   qsrflx, &
            ids,ide, jds,jde, kds,kde,                        &
            ims,ime, jms,jme, kms,kme,                        &
            its,ite, jts,jte, kts,kte                         )
 
     USE module_configure, only: grid_config_rec_type
-	use module_state_description, only:  num_chem
+!lm
+!	use module_state_description, only:  num_chem
+!	use module_state_description, only:  num_chem,p_bc_a01,p_bc_a02,p_bc_a03,p_bc_a04, &
+!                                             p_bc_a05,p_bc_a06,p_bc_a07,p_bc_a08
+    use module_state_description, only:  num_chem,&
+                               SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, depout1,&
+                               p_dryd_p_so4,p_dryd_p_no3,p_dryd_p_cl,&
+                               p_dryd_p_nh4,p_dryd_p_na,p_dryd_p_oin,&
+                               p_dryd_p_oc,p_dryd_p_bc,p_dryd_p_hysw,&
+                               p_dryd_p_water,p_dryd_p_ant1_c,p_dryd_p_ant2_c,&
+                               p_dryd_p_ant3_c,p_dryd_p_ant4_c,p_dryd_p_biog1_c,&
+                               p_dryd_p_biog2_c,p_dryd_p_biog3_c,p_dryd_p_biog4_c,&
+                               p_dryd_p_num,&
+                               p_bc_a01,p_bc_a02,p_bc_a03,p_bc_a04, &
+                               p_bc_a05,p_bc_a06,p_bc_a07,p_bc_a08,&
+                               p_so4_a01,p_so4_a02,p_so4_a03,p_so4_a04, &
+                               p_so4_a05,p_so4_a06,p_so4_a07,p_so4_a08, &
+                               p_no3_a01,p_no3_a02,p_no3_a03,p_no3_a04, &
+                               p_no3_a05,p_no3_a06,p_no3_a07,p_no3_a08,&
+                               p_cl_a01,p_cl_a02,p_cl_a03,p_cl_a04,&
+                               p_cl_a05,p_cl_a06,p_cl_a07,p_cl_a08, &
+                               p_nh4_a01,p_nh4_a02,p_nh4_a03,p_nh4_a04,&
+                               p_nh4_a05,p_nh4_a06,p_nh4_a07,p_nh4_a08, &
+                               p_na_a01,p_na_a02,p_na_a03,p_na_a04,&
+                               p_na_a05,p_na_a06,p_na_a07,p_na_a08, &
+                               p_oin_a01,p_oin_a02,p_oin_a03,p_oin_a04,&
+                               p_oin_a05,p_oin_a06,p_oin_a07,p_oin_a08, &
+                               p_oc_a01,p_oc_a02,p_oc_a03,p_oc_a04,&
+                               p_oc_a05,p_oc_a06,p_oc_a07,p_oc_a08, &
+                               p_hysw_a01,p_hysw_a02,p_hysw_a03,p_hysw_a04,&
+                               p_hysw_a05,p_hysw_a06,p_hysw_a07,p_hysw_a08, &
+                               p_water_a01,p_water_a02,p_water_a03,p_water_a04,&
+                               p_water_a05,p_water_a06,p_water_a07,p_water_a08, &
+                               p_ant1_c_a01,p_ant1_c_a02,p_ant1_c_a03,p_ant1_c_a04,&
+                               p_ant1_c_a05,p_ant1_c_a06,p_ant1_c_a07,p_ant1_c_a08, &
+                               p_ant2_c_a01,p_ant2_c_a02,p_ant2_c_a03,p_ant2_c_a04,&
+                               p_ant2_c_a05,p_ant2_c_a06,p_ant2_c_a07,p_ant2_c_a08, &
+                               p_ant3_c_a01,p_ant3_c_a02,p_ant3_c_a03,p_ant3_c_a04,&
+                               p_ant3_c_a05,p_ant3_c_a06,p_ant3_c_a07,p_ant3_c_a08, &
+                               p_ant4_c_a01,p_ant4_c_a02,p_ant4_c_a03,p_ant4_c_a04,&
+                               p_ant4_c_a05,p_ant4_c_a06,p_ant4_c_a07,p_ant4_c_a08, &
+                               p_biog1_c_a01,p_biog1_c_a02,p_biog1_c_a03,p_biog1_c_a04,&
+                               p_biog1_c_a05,p_biog1_c_a06,p_biog1_c_a07,p_biog1_c_a08, &
+                               p_biog2_c_a01,p_biog2_c_a02,p_biog2_c_a03,p_biog2_c_a04,&
+                               p_biog2_c_a05,p_biog2_c_a06,p_biog2_c_a07,p_biog2_c_a08, &
+                               p_biog3_c_a01,p_biog3_c_a02,p_biog3_c_a03,p_biog3_c_a04,&
+                               p_biog3_c_a05,p_biog3_c_a06,p_biog3_c_a07,p_biog3_c_a08, &
+                               p_biog4_c_a01,p_biog4_c_a02,p_biog4_c_a03,p_biog4_c_a04,&
+                               p_biog4_c_a05,p_biog4_c_a06,p_biog4_c_a07,p_biog4_c_a08, &
+                               p_num_a01,p_num_a02,p_num_a03,p_num_a04,&
+                               p_num_a05,p_num_a06,p_num_a07,p_num_a08
+!lm
 	use module_data_mosaic_asect
 	use module_mixactivate, only: mixactivate
 
@@ -73,6 +132,9 @@ CONTAINS
 	real, intent(inout),   &
 		dimension( ims:ime, kms:kme, jms:jme, 1:num_chem ) :: &
 		chem
+!ND
+   real, dimension( ims:ime , 1, jms:jme, num_chem ), intent(inout) :: dryd_ct
+!ND
       real, intent(out), dimension(ims:ime,kms:kme,jms:jme) :: nsource,&
 	     ccn1,ccn2,ccn3,ccn4,ccn5,ccn6  ! number conc of aerosols activated at supersat
 
@@ -122,6 +184,201 @@ CONTAINS
 	       ccn1, ccn2, ccn3, ccn4, ccn5, ccn6, nsource,       &
 	       id, ktau, dtstep, &
            f_qc, f_qi               )
+
+!lm dry dep for bc, in µg m-2
+!   do j=jms,jme
+!    do i=ims,ime
+!          dry_dep_bc(i,j) = dry_dep_bc (i,j)+ 1.0E9 * dtstep * ( qsrflx(i,j,p_bc_a01) + &
+!                            qsrflx(i,j,p_bc_a02) + &
+!                            qsrflx(i,j,p_bc_a03) + &
+!                            qsrflx(i,j,p_bc_a04) + &
+!                            qsrflx(i,j,p_bc_a05) + &
+!                            qsrflx(i,j,p_bc_a06) + &
+!                            qsrflx(i,j,p_bc_a07) + &
+!                            qsrflx(i,j,p_bc_a08) )
+!        enddo
+!   enddo
+!ND IC added so4 and no3
+
+  if ( config_flags%diagnostic_chem == DEPOUT1 .and. &
+     ( config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP )) then
+    do j=jms,jme
+      do i=ims,ime
+        dryd_ct(i,1,j,p_dryd_p_so4)     = dryd_ct(i,1,j,p_dryd_p_so4) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_so4_a01)+ &
+                                          qsrflx(i,j,p_so4_a02)+ &
+                                          qsrflx(i,j,p_so4_a03)+ &
+                                          qsrflx(i,j,p_so4_a04)+ &
+                                          qsrflx(i,j,p_so4_a05)+ &
+                                          qsrflx(i,j,p_so4_a06)+ &
+                                          qsrflx(i,j,p_so4_a07)+ &
+                                          qsrflx(i,j,p_so4_a08) )
+        dryd_ct(i,1,j,p_dryd_p_no3)     = dryd_ct(i,1,j,p_dryd_p_no3) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_no3_a01)+ &
+                                          qsrflx(i,j,p_no3_a02)+ &
+                                          qsrflx(i,j,p_no3_a03)+ &
+                                          qsrflx(i,j,p_no3_a04)+ &
+                                          qsrflx(i,j,p_no3_a05)+ &
+                                          qsrflx(i,j,p_no3_a06)+ &
+                                          qsrflx(i,j,p_no3_a07)+ &
+                                          qsrflx(i,j,p_no3_a08) )
+        dryd_ct(i,1,j,p_dryd_p_cl)      = dryd_ct(i,1,j,p_dryd_p_cl) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_cl_a01)+ &
+                                          qsrflx(i,j,p_cl_a02)+ &
+                                          qsrflx(i,j,p_cl_a03)+ &
+                                          qsrflx(i,j,p_cl_a04)+ &
+                                          qsrflx(i,j,p_cl_a05)+ &
+                                          qsrflx(i,j,p_cl_a06)+ &
+                                          qsrflx(i,j,p_cl_a07)+ &
+                                          qsrflx(i,j,p_cl_a08) )
+        dryd_ct(i,1,j,p_dryd_p_nh4)     = dryd_ct(i,1,j,p_dryd_p_nh4) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_nh4_a01)+ &
+                                          qsrflx(i,j,p_nh4_a02)+ &
+                                          qsrflx(i,j,p_nh4_a03)+ &
+                                          qsrflx(i,j,p_nh4_a04)+ &
+                                          qsrflx(i,j,p_nh4_a05)+ &
+                                          qsrflx(i,j,p_nh4_a06)+ &
+                                          qsrflx(i,j,p_nh4_a07)+ &
+                                          qsrflx(i,j,p_nh4_a08) )
+        dryd_ct(i,1,j,p_dryd_p_na)      = dryd_ct(i,1,j,p_dryd_p_na) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_na_a01)+ &
+                                          qsrflx(i,j,p_na_a02)+ &
+                                          qsrflx(i,j,p_na_a03)+ &
+                                          qsrflx(i,j,p_na_a04)+ &
+                                          qsrflx(i,j,p_na_a05)+ &
+                                          qsrflx(i,j,p_na_a06)+ &
+                                          qsrflx(i,j,p_na_a07)+ &
+                                          qsrflx(i,j,p_na_a08) )
+        dryd_ct(i,1,j,p_dryd_p_oin)     = dryd_ct(i,1,j,p_dryd_p_oin) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_oin_a01)+ &
+                                          qsrflx(i,j,p_oin_a02)+ &
+                                          qsrflx(i,j,p_oin_a03)+ &
+                                          qsrflx(i,j,p_oin_a04)+ &
+                                          qsrflx(i,j,p_oin_a05)+ &
+                                          qsrflx(i,j,p_oin_a06)+ &
+                                          qsrflx(i,j,p_oin_a07)+ &
+                                          qsrflx(i,j,p_oin_a08) )
+        dryd_ct(i,1,j,p_dryd_p_oc)      = dryd_ct(i,1,j,p_dryd_p_oc) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_oc_a01)+ &
+                                          qsrflx(i,j,p_oc_a02)+ &
+                                          qsrflx(i,j,p_oc_a03)+ &
+                                          qsrflx(i,j,p_oc_a04)+ &
+                                          qsrflx(i,j,p_oc_a05)+ &
+                                          qsrflx(i,j,p_oc_a06)+ &
+                                          qsrflx(i,j,p_oc_a07)+ &
+                                          qsrflx(i,j,p_oc_a08) )
+        dryd_ct(i,1,j,p_dryd_p_bc)      = dryd_ct(i,1,j,p_dryd_p_bc) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_bc_a01)+ &
+                                          qsrflx(i,j,p_bc_a02)+ &
+                                          qsrflx(i,j,p_bc_a03)+ &
+                                          qsrflx(i,j,p_bc_a04)+ &
+                                          qsrflx(i,j,p_bc_a05)+ &
+                                          qsrflx(i,j,p_bc_a06)+ &
+                                          qsrflx(i,j,p_bc_a07)+ &
+                                          qsrflx(i,j,p_bc_a08) )
+        dryd_ct(i,1,j,p_dryd_p_hysw)    = dryd_ct(i,1,j,p_dryd_p_hysw) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_hysw_a01)+ &
+                                          qsrflx(i,j,p_hysw_a02)+ &
+                                          qsrflx(i,j,p_hysw_a03)+ &
+                                          qsrflx(i,j,p_hysw_a04)+ &
+                                          qsrflx(i,j,p_hysw_a05)+ &
+                                          qsrflx(i,j,p_hysw_a06)+ &
+                                          qsrflx(i,j,p_hysw_a07)+ &
+                                          qsrflx(i,j,p_hysw_a08) )
+        dryd_ct(i,1,j,p_dryd_p_water)   = dryd_ct(i,1,j,p_dryd_p_water) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_water_a01)+ &
+                                          qsrflx(i,j,p_water_a02)+ &
+                                          qsrflx(i,j,p_water_a03)+ &
+                                          qsrflx(i,j,p_water_a04)+ &
+                                          qsrflx(i,j,p_water_a05)+ &
+                                          qsrflx(i,j,p_water_a06)+ &
+                                          qsrflx(i,j,p_water_a07)+ &
+                                          qsrflx(i,j,p_water_a08) )
+        dryd_ct(i,1,j,p_dryd_p_ant1_c)  = dryd_ct(i,1,j,p_dryd_p_ant1_c) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_ant1_c_a01)+ &
+                                          qsrflx(i,j,p_ant1_c_a02)+ &
+                                          qsrflx(i,j,p_ant1_c_a03)+ &
+                                          qsrflx(i,j,p_ant1_c_a04)+ &
+                                          qsrflx(i,j,p_ant1_c_a05)+ &
+                                          qsrflx(i,j,p_ant1_c_a06)+ &
+                                          qsrflx(i,j,p_ant1_c_a07)+ &
+                                          qsrflx(i,j,p_ant1_c_a08) )
+!        dryd_ct(i,1,j,p_dryd_p_ant2_c)  = dryd_ct(i,1,j,p_dryd_p_ant2_c) + 1.0E9 * dtstep * ( &
+!                                          qsrflx(i,j,p_ant2_c_a01)+ &
+!                                          qsrflx(i,j,p_ant2_c_a02)+ &
+!                                          qsrflx(i,j,p_ant2_c_a03)+ &
+!                                          qsrflx(i,j,p_ant2_c_a04)+ &
+!                                          qsrflx(i,j,p_ant2_c_a05)+ &
+!                                          qsrflx(i,j,p_ant2_c_a06)+ &
+!                                          qsrflx(i,j,p_ant2_c_a07)+ &
+!                                          qsrflx(i,j,p_ant2_c_a08) )
+!        dryd_ct(i,1,j,p_dryd_p_ant3_c)  = dryd_ct(i,1,j,p_dryd_p_ant3_c) + 1.0E9 * dtstep * ( &
+!                                          qsrflx(i,j,p_ant3_c_a01)+ &
+!                                          qsrflx(i,j,p_ant3_c_a02)+ &
+!                                          qsrflx(i,j,p_ant3_c_a03)+ &
+!                                          qsrflx(i,j,p_ant3_c_a04)+ &
+!                                          qsrflx(i,j,p_ant3_c_a05)+ &
+!                                          qsrflx(i,j,p_ant3_c_a06)+ &
+!                                          qsrflx(i,j,p_ant3_c_a07)+ &
+!                                          qsrflx(i,j,p_ant3_c_a08) )
+!        dryd_ct(i,1,j,p_dryd_p_ant4_c)  = dryd_ct(i,1,j,p_dryd_p_ant4_c) + 1.0E9 * dtstep * ( &
+!                                          qsrflx(i,j,p_ant4_c_a01)+ &
+!                                          qsrflx(i,j,p_ant4_c_a02)+ &
+!                                          qsrflx(i,j,p_ant4_c_a03)+ &
+!                                          qsrflx(i,j,p_ant4_c_a04)+ &
+!                                          qsrflx(i,j,p_ant4_c_a05)+ &
+!                                          qsrflx(i,j,p_ant4_c_a06)+ &
+!                                          qsrflx(i,j,p_ant4_c_a07)+ &
+!                                          qsrflx(i,j,p_ant4_c_a08) )
+        dryd_ct(i,1,j,p_dryd_p_biog1_c) = dryd_ct(i,1,j,p_dryd_p_biog1_c) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_biog1_c_a01)+ &
+                                          qsrflx(i,j,p_biog1_c_a02)+ &
+                                          qsrflx(i,j,p_biog1_c_a03)+ &
+                                          qsrflx(i,j,p_biog1_c_a04)+ &
+                                          qsrflx(i,j,p_biog1_c_a05)+ &
+                                          qsrflx(i,j,p_biog1_c_a06)+ &
+                                          qsrflx(i,j,p_biog1_c_a07)+ &
+                                          qsrflx(i,j,p_biog1_c_a08) )
+!        dryd_ct(i,1,j,p_dryd_p_biog2_c) = dryd_ct(i,1,j,p_dryd_p_biog2_c) + 1.0E9 * dtstep * ( &
+!                                          qsrflx(i,j,p_biog2_c_a01)+ &
+!                                          qsrflx(i,j,p_biog2_c_a02)+ &
+!                                          qsrflx(i,j,p_biog2_c_a03)+ &
+!                                          qsrflx(i,j,p_biog2_c_a04)+ &
+!                                          qsrflx(i,j,p_biog2_c_a05)+ &
+!                                          qsrflx(i,j,p_biog2_c_a06)+ &
+!                                          qsrflx(i,j,p_biog2_c_a07)+ &
+!                                          qsrflx(i,j,p_biog2_c_a08) )
+!        dryd_ct(i,1,j,p_dryd_p_biog3_c) = dryd_ct(i,1,j,p_dryd_p_biog3_c) + 1.0E9 * dtstep * ( &
+!                                          qsrflx(i,j,p_biog3_c_a01)+ &
+!                                          qsrflx(i,j,p_biog3_c_a02)+ &
+!                                          qsrflx(i,j,p_biog3_c_a03)+ &
+!                                          qsrflx(i,j,p_biog3_c_a04)+ &
+!                                          qsrflx(i,j,p_biog3_c_a05)+ &
+!                                          qsrflx(i,j,p_biog3_c_a06)+ &
+!                                          qsrflx(i,j,p_biog3_c_a07)+ &
+!                                          qsrflx(i,j,p_biog3_c_a08) )
+!        dryd_ct(i,1,j,p_dryd_p_biog4_c) = dryd_ct(i,1,j,p_dryd_p_biog4_c) + 1.0E9 * dtstep * ( &
+!                                          qsrflx(i,j,p_biog4_c_a01)+ &
+!                                          qsrflx(i,j,p_biog4_c_a02)+ &
+!                                          qsrflx(i,j,p_biog4_c_a03)+ &
+!                                          qsrflx(i,j,p_biog4_c_a04)+ &
+!                                          qsrflx(i,j,p_biog4_c_a05)+ &
+!                                          qsrflx(i,j,p_biog4_c_a06)+ &
+!                                          qsrflx(i,j,p_biog4_c_a07)+ &
+!                                          qsrflx(i,j,p_biog4_c_a08) )
+        dryd_ct(i,1,j,p_dryd_p_num)     = dryd_ct(i,1,j,p_dryd_p_num) + 1.0E9 * dtstep * ( &
+                                          qsrflx(i,j,p_num_a01)+ &
+                                          qsrflx(i,j,p_num_a02)+ &
+                                          qsrflx(i,j,p_num_a03)+ &
+                                          qsrflx(i,j,p_num_a04)+ &
+                                          qsrflx(i,j,p_num_a05)+ &
+                                          qsrflx(i,j,p_num_a06)+ &
+                                          qsrflx(i,j,p_num_a07)+ &
+                                          qsrflx(i,j,p_num_a08) )
+      enddo
+    enddo
+  endif
+!lm
 
       end subroutine mosaic_mixactivate
 

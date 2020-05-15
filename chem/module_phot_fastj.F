@@ -1,3 +1,8 @@
+!lm Louis Marelle 2016/5/11: In Fast-J photolysis, use a higher surface
+!   UV-albedo over snow- and ice-covered surfaces.
+!   Albedo values are from Tanskanen and Manninen, ACP, 2007, and are mapped to
+!   USGS land use categories (ivgtyp)
+!
 !************************************************************************
 ! This computer software was prepared by Battelle Memorial Institute,
 ! hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with
@@ -65,6 +70,9 @@
 !
 	module module_phot_fastj
 	integer, parameter :: lunerr = -1
+!lm
+        integer, private, allocatable :: luse2usgs(:)
+!lm
 
 	contains
 !***********************************************************************
@@ -76,6 +84,11 @@
                ph_ch3coch3,ph_ch3coc2h5,ph_hcocho,ph_ch3cocho,         &
                ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,ph_hcochob,&
                ph_n2o5,                                                &
+               ivgtyp,                                                 & 
+!lm Add land cover type, snow height, snow cover and ice fraction to photolysis
+!   in order to calculate snow- and ice-dependent UV albedos in Fast-J
+               snowh, snowc, xice,                           &
+!lm
                tauaer1,tauaer2,tauaer3,tauaer4,                        &
                gaer1,gaer2,gaer3,gaer4,                                &
                waer1,waer2,waer3,waer4,                                &
@@ -165,7 +178,13 @@
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, 1:4 ),               &
          INTENT(IN ) ::                                             &
            l2aer,l3aer,l4aer,l5aer,l6aer,l7aer                      
-
+  INTEGER, DIMENSION( ims:ime , jms:jme ),                      &
+          INTENT(IN   ) :: ivgtyp
+!lm Add land cover type, snow height, snow cover and ice fraction to photolysis
+!   in order to calculate snow- and ice-dependent UV albedos in Fast-J
+  REAL,  DIMENSION( ims:ime , jms:jme ),                        &
+          INTENT(IN   ) :: snowh, snowc, xice
+!lm
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),         &
          INTENT(INOUT ) ::                                chem
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,    &
@@ -207,6 +226,11 @@
       real, dimension(kts:kte+1) :: zatw
  	     
       real valuej(kte,nphoto_fastj)
+!lm  snow height, snow cover, ice fraction and land use at i, j
+      real snow_height, snow_cover, ice_fract
+      integer landtype
+      integer if_fractseaice !config flag for fractional_seaice
+!lm
 
       logical processingAerosols
 
@@ -328,6 +352,14 @@
 ! set lat, long
 	  sla = xlat(iclm,jclm)
 	  slo = xlong(iclm,jclm)
+!lm snow height and cover, ice cover, land use type to pass to the phot scheme
+          snow_height=snowh(iclm,jclm)
+          snow_cover=snowc(iclm,jclm)
+          ice_fract=xice(iclm,jclm)
+          landtype=int(luse2usgs(ivgtyp(iclm,jclm)))
+          if_fractseaice=config_flags%fractional_seaice
+!lm
+
 ! set column pressures, temperature, and ozone
 	  psfc = p8w(iclm,1,jclm) * 10. ! convert pascals to dynes/cm2
 	  do k = kts, lpar
@@ -348,6 +380,11 @@
 	  call interface_fastj(tmidh,sla,slo,julday,           &
            pbnd, psfc, temp, ozone,                        &
            dz, cloudmr, airdensity, relhum, zatw,          &
+!lm Add snow height, snowcover, icecover, landuse cat, and fractional sea ice
+!flag
+           snow_height, snow_cover, ice_fract,             &
+           landtype, if_fractseaice,                       &
+!lm
            iclm, jclm, lpar, jpnl,                         &
            curr_secs, valuej, cos_sza, processingAerosols, &
            sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7)
@@ -508,6 +545,11 @@
         subroutine interface_fastj(tmidh,sla,slo,julian_day,   &
              pbnd, psfc, temp, ozone,                          &
              dz, cloudmr, airdensity, relhum, zatw,            &
+!lm Add snow height, snowcover, icecover, landuse cat, and fractional sea ice
+!flag
+             snow_height, snow_cover, ice_fract,               & 
+             landtype, if_fractseaice,                         &
+!lm
              isvode, jsvode, lpar, jpnl,                       &
       	     curr_secs, valuej, cos_sza, processingAerosols,   &
              sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7)
@@ -601,11 +643,25 @@
    parameter( lfastj_hno4  = 13 )
    integer nspint           ! Num of spectral intervals across solar 
    parameter ( nspint = 4 ) ! spectrum for FAST-J
+!lm
+   real, dimension (24) :: snow_uvalb
+!lm
    real, dimension (nspint),save :: wavmid !cm
    real, dimension (nspint, kmaxd+1) :: sizeaer,extaer,waer,gaer,tauaer
    real, dimension (nspint, kmaxd+1) :: l2,l3,l4,l5,l6,l7
    data wavmid     &
        / 0.30e-4, 0.40e-4, 0.60e-4 ,0.999e-04 /
+!lm Broadband UV albedo for snow covered surfaces, for each of the 24
+!   USGS land use categories (unitless)
+   data snow_uvalb & !lm From Tanskanen and Manninen, 2007.
+       / 0.836, 0.376, 0.376, 0.376, 0.376, 0.376, 0.720, 0.558, &
+         0.558, 0.720, 0.406, 0.406, 0.278, 0.278, 0.278, 0.836, &
+         0.720, 0.558, 0.836, 0.720, 0.558, 0.558, 0.836, 0.836 /
+! Snow height, snow cover, ice fraction and land use at i, j
+      real snow_height, snow_cover, ice_fract !snow height in meters
+      integer landtype
+      integer if_fractseaice !config flag for fractional_seaice
+!lm
 !jdf
 	real pbnd(0:lpar), psfc
 	real temp(lpar), ozone(lpar), surface_albedo
@@ -724,7 +780,23 @@
 	   col_ozone(k) = ozone(k)
 	end do
 
- 	surface_albedo=0.055
+!lm 	surface_albedo=0.055
+!lm: use a different surface albedo over snow covered surfaces. Values
+! by Tanskanen and Manninen, ACP, 2007
+        surface_albedo = 0.055 !default value from PNNL, about right for most ice/snow free land surfaces
+        if( landtype .ge. 1 .and. landtype .le. 24) then
+          if( snow_height >= 0.01 .and. snow_cover >= 0.01) & !10 cm threshold from MOZART, 10% threshold seems right
+            surface_albedo = snow_cover*snow_uvalb(landtype) + (1.0 - snow_cover) *0.055
+          if (ice_fract >= 0.15) then !15% is the typical threshold for sea ice extent (see NSIDC)
+            if(if_fractseaice == 1) then
+              surface_albedo = 0.836 * ice_fract + (1.0 - ice_fract) * 0.055 !fractional sea ice
+            else
+              surface_albedo = 0.836
+            endif
+          endif !ice_fract exceeds the threshold of 15%
+        endif !landtype is in the USGS range, 1 to 24
+!lm
+
 
 ! set aerosol parameters needed by Fast-J	                         	         	
         if (processingAerosols) then
@@ -3447,5 +3519,40 @@
          end subroutine rd_tjpl2
 !********************************************************************
 
+!lm
+         subroutine fastj_landinit(id,num_land_cat, mminlu_loc)
+         ! this routine initializes the luse2usgs array, used to map land use
+         ! (ivgtyp) categories other than USGS (only MODIS for now) to USGS
+
+         implicit none
+
+         !----------------------------------------------------------------
+         ! Dummy arguments
+         integer, intent(in) :: id, num_land_cat ! domain id and number of
+                                                 ! landuse categories
+         character(len=*), intent(in) :: mminlu_loc !land use mapping type
+         !local variables
+         integer :: i !loop index
+         integer astat !status flag for array allocation
+         !----------------------------------------------------------------
+
+         if( id == 1 .and. .not. allocated(luse2usgs) ) then
+           allocate( luse2usgs(num_land_cat),stat=astat )
+           if( astat /= 0 ) then
+             CALL wrf_message( 'fastj_landinit: failed to allocate luse2usgs')
+             CALL wrf_abort
+           end if
+           if( trim(mminlu_loc) == 'USGS' ) then
+             luse2usgs(:) = (/ (i,i=1,num_land_cat) /)
+           elseif( trim(mminlu_loc) == 'MODIFIED_IGBP_MODIS_NOAH' ) then
+             luse2usgs(:) = (/ 14,13,12,11,15,8,9,10,10,7, &
+                              17,4,1,5,24,19,16,21,22,23 /)
+           endif
+         endif
+
+         end subroutine fastj_landinit
+
+!********************************************************************
+!lm
 
 end module module_phot_fastj

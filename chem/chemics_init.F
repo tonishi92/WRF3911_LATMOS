@@ -1,11 +1,33 @@
 !WRF:MODEL_LAYER:INITIALIZATION
 !
-   subroutine chem_init (id,chem,emis_ant,scalar,dt,bioemdt,photdt,chemdt,stepbioe, &
-               stepphot,stepchem,stepfirepl,plumerisefire_frq,z_at_w,xlat,xlong,    &
+!lm Louis Marelle 2016/5/20: Add a condition for Nightingale DMS emissions
+!lm Louis Marelle 2016/5/17: Add lightning nox parameterization for KF-CuP cumuli
+!lm 2015/07: I included stepradeffect and radeffectdt, to calculate the aerosol
+!            and O3 radiative effects at time step radeffectdt
+!lm 2015/07: Call WRF fatal if dmsemis_opt is called with an untested mechanism
+!lm 2015/07: diagnosis variables for accumulated BC deposition, dry_dep_bc and
+!wet_dep_bc, are initialized here to zero
+!
+   subroutine chem_init (id,chem,emis_ant,scalar,dt,bioemdt,photdt,  &
+!lm               chemdt,
+!lm               stepbioe,stepphot,stepchem,stepfirepl,
+               chemdt,radeffectdt,                                      &
+               stepbioe,stepphot,stepchem,stepradeffect,      &
+               stepfirepl,                                                   &
+!lm
+               plumerisefire_frq,z_at_w,xlat,xlong,    &
                g,aerwrf,config_flags,grid,alt,t,p,CONVFAC,ttday,tcosz,julday,gmt,   &
                tauaer1,tauaer2,tauaer3,tauaer4,                      &
                gaer1,gaer2,gaer3,gaer4,                              &
                waer1,waer2,waer3,waer4,                              &
+!lm
+               tauaer1_no_bc,tauaer2_no_bc,tauaer3_no_bc,tauaer4_no_bc, &
+               gaer1_no_bc,gaer2_no_bc,gaer3_no_bc,gaer4_no_bc, &
+               waer1_no_bc,waer2_no_bc,waer3_no_bc,waer4_no_bc, &
+               tauaer1_no_so4,tauaer2_no_so4,tauaer3_no_so4,tauaer4_no_so4, &
+               gaer1_no_so4,gaer2_no_so4,gaer3_no_so4,gaer4_no_so4, &
+               waer1_no_so4,waer2_no_so4,waer3_no_so4,waer4_no_so4, &
+!lm
                l2aer,l3aer,l4aer,l5aer,l6aer,l7aer,                  &
                extaerlw1,extaerlw2,extaerlw3,extaerlw4,              &
                extaerlw5,extaerlw6,extaerlw7,extaerlw8,              &
@@ -18,6 +40,11 @@
                dgnum4d, dgnumwet4d, dgnum_a1, dgnum_a2, dgnum_a3,    & 
                dgnumwet_a1, dgnumwet_a2, dgnumwet_a3,                & 
                pm2_5_dry,pm2_5_water,pm2_5_dry_ec,                   &
+!lm
+!TO2
+!               dry_dep_bc, wet_dep_bc,                               &
+!TO2
+!lm
                tsoa,asoa,bsoa,                                       &
                last_chem_time_year, last_chem_time_month,            &
                last_chem_time_day, last_chem_time_hour,              &
@@ -34,6 +61,9 @@
 
    USE module_ftuv_driver, only : ftuv_init
    USE module_phot_tuv,    only : tuv_init
+!lm Update dependencies
+   USE module_phot_fastj, only: fastj_landinit
+!lm
    USE module_mozcart_wetscav, only : wetscav_mozcart_init
    USE module_aerosols_sorgam
    USE module_aerosols_soa_vbs, only: aerosols_soa_vbs_init
@@ -66,7 +96,9 @@
 
    IMPLICIT NONE
 
-   real  , intent(in) :: bioemdt,photdt,chemdt,dt,gmt
+!lm   real  , intent(in) :: bioemdt,photdt,chemdt,dt,gmt
+   real  , intent(in) :: bioemdt,photdt,chemdt,radeffectdt,dt,gmt
+!lm
    INTEGER,      INTENT(IN   ) :: plumerisefire_frq
    INTEGER,      INTENT(IN   ) :: chem_in_opt
    INTEGER,      INTENT(INOUT) :: num_vert_mix
@@ -105,6 +137,21 @@
                                dgnumwet_a1, dgnumwet_a2, dgnumwet_a3
 !-- end dgnum restart arrays
 
+!lm
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,         &
+          INTENT(INOUT   ) ::                                        &
+                      tauaer1_no_bc,tauaer2_no_bc,tauaer3_no_bc,tauaer4_no_bc,      &
+                      gaer1_no_bc,gaer2_no_bc,gaer3_no_bc,gaer4_no_bc,              &
+                      waer1_no_bc,waer2_no_bc,waer3_no_bc,waer4_no_bc,              &
+                      tauaer1_no_so4,tauaer2_no_so4,tauaer3_no_so4,tauaer4_no_so4,      &
+                      gaer1_no_so4,gaer2_no_so4,gaer3_no_so4,gaer4_no_so4,              &
+                      waer1_no_so4,waer2_no_so4,waer3_no_so4,waer4_no_so4
+!TO2
+!   REAL,  DIMENSION( ims:ime , jms:jme )                   ,         &
+!          INTENT(INOUT   ) ::                                        &
+!                               dry_dep_bc, wet_dep_bc
+!TO2
+!lm
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , 1:4 )   ,         &
           INTENT(INOUT   ) ::                                        &
                                l2aer,l3aer,l4aer,l5aer,l6aer,l7aer
@@ -127,7 +174,9 @@
           INTENT(INOUT   ) ::                                        &
                                ttday,tcosz,xlat,xlong
    real, INTENT (IN) :: g
-   integer, intent(out) :: stepbioe,stepphot,stepchem,stepfirepl
+!lm   integer, intent(out) :: stepbioe,stepphot,stepchem,stepfirepl
+   integer, intent(out) :: stepbioe,stepphot,stepchem,stepradeffect,stepfirepl
+!lm
    TYPE (grid_config_rec_type) , INTENT (in) ::     config_flags
    TYPE(domain) ,             INTENT (inout) ::     grid
 !
@@ -347,6 +396,16 @@ call wrf_message("**************************************************************
        endif
    endif
 
+!lm Only allow lightning nox options 0 (no lnox) or 1 (Ott lnox) with KF-CuP
+!cumuli for now. Using the "Decaria" option requires extensive rewriting of the
+!module
+   if ( config_flags%cu_physics == 10) then
+     if ( config_flags%lnox_opt /= 0 .and. config_flags%lnox_opt /= 1) then
+       call wrf_error_fatal("chemics_init: KF-CuP cumulus scheme only tested with lnox_opt = 0 or 1")
+     endif
+   endif
+!lm
+
    !BSINGH - kfcup schme only works with Mosaic aqueoue packages:
    ! *** NOTE ***
    ! KFCUP should in theory work with any chem_opt package that uses MOSAIC and has cloud-borne aerosols (*_aq*).
@@ -397,6 +456,13 @@ call wrf_message("**************************************************************
 !     call wrf_error_fatal("ERROR: MEGAN biogenics requires ne_area to be equal or greater than num_chem")
       call wrf_error_fatal( trim(message_txt) )
    endif
+
+!lm Add this condition on emiss_opt for Nightingale DMS emissions
+   if ( config_flags%dmsemis_opt == 2 .and. (config_flags%emiss_opt /= 4 .and. config_flags%emiss_opt /= 13) ) then
+      call wrf_error_fatal (15,'chemics_init: error, nightingale_dmsemis (dmsemis_opt = 2) &
+                              requires e_dms_oc to be defined in emis_ant (emiss_opt = 4 or 13)')
+   endif
+!lm
 
     IF ( config_flags%chem_opt == 0 .AND. config_flags%aer_ra_feedback .NE. 0 ) THEN
 !       config_flags%aer_ra_feedback = 0
@@ -457,6 +523,20 @@ call wrf_message("**************************************************************
     ENDIF
 !--
     
+!lm For now, do not allow dmsemis_opt=2 for untested mechanisms.
+    IF(config_flags%dmsemis_opt == 2) THEN
+        IF(config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP .or. &
+           config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ) THEN
+           call wrf_debug( 15, 'Using the DMS emission scheme for MOSAIC')
+        ELSE
+           message_txt = "chemics_init.F: ERROR, DMSEMIS_OPT == 2 is currently only allowed with &
+                          tested mechanisms SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP and CBMZ_MOSAIC_DMS_8BIN_AQ.&
+                          In order to use this option with another mechanism, please modify chemics_init.F"
+           call wrf_error_fatal( trim(message_txt) )
+        ENDIF
+    ENDIF
+!lm
+
 !-- Load dgnum arrays when restart is active
 IF ( config_flags%restart ) THEN
        do j=jts,jte
@@ -476,6 +556,16 @@ ENDIF
 !-- end load dgnum arrays
 
     if( .NOT. config_flags%restart ) then
+!lm
+!TO2
+!       do j=jts,jte
+!          do i=its,ite
+!             dry_dep_bc(i,j)=0.
+!             wet_dep_bc(i,j)=0.
+!          end do
+!       end do
+!TO2
+!lm
        do j=jts,jte
           do k=kts,kte
              do i=its,ite
@@ -491,6 +581,32 @@ ENDIF
                 waer2(i,k,j) = 0.
                 waer3(i,k,j) = 0.
                 waer4(i,k,j) = 0.
+!lm
+                tauaer1_no_bc(i,k,j) = 0.
+                tauaer2_no_bc(i,k,j) = 0.
+                tauaer3_no_bc(i,k,j) = 0.
+                tauaer4_no_bc(i,k,j) = 0.
+                gaer1_no_bc(i,k,j) = 0.
+                gaer2_no_bc(i,k,j) = 0.
+                gaer3_no_bc(i,k,j) = 0.
+                gaer4_no_bc(i,k,j) = 0.
+                waer1_no_bc(i,k,j) = 0.
+                waer2_no_bc(i,k,j) = 0.
+                waer3_no_bc(i,k,j) = 0.
+                waer4_no_bc(i,k,j) = 0.
+                tauaer1_no_so4(i,k,j) = 0.
+                tauaer2_no_so4(i,k,j) = 0.
+                tauaer3_no_so4(i,k,j) = 0.
+                tauaer4_no_so4(i,k,j) = 0.
+                gaer1_no_so4(i,k,j) = 0.
+                gaer2_no_so4(i,k,j) = 0.
+                gaer3_no_so4(i,k,j) = 0.
+                gaer4_no_so4(i,k,j) = 0.
+                waer1_no_so4(i,k,j) = 0.
+                waer2_no_so4(i,k,j) = 0.
+                waer3_no_so4(i,k,j) = 0.
+                waer4_no_so4(i,k,j) = 0.
+!lm
                 l2aer(i,k,j,1) = 0.
                 l2aer(i,k,j,2) = 0.
                 l2aer(i,k,j,3) = 0.
@@ -635,6 +751,13 @@ end if
 
         call ftuv_init( id, its, ite, jts, jte, kte, &
                   ide, jde, config_flags,config_flags%num_land_cat,mminlu_loc )
+
+!lm Add an initialization routine for fastj photolysis, in order to use varying
+!surface albedo
+      CASE (PHOTFASTJ)
+        CALL wrf_debug(00,'call fastj phot initialization')
+        call fastj_landinit( id, config_flags%num_land_cat,mminlu_loc )
+!lm
      CASE (TUV)
        if( config_flags%cld_od_opt > 3 .or. config_flags%cld_od_opt < 1 ) then
          call wrf_error_fatal("cld_od_opt must be {1,2,3}")
@@ -1289,8 +1412,12 @@ end if
           do j=jts,jte
              do k=kts,kte
                 do i=its,ite
-                   chem(i,k,j,p_co2)=370.
-                   chem(i,k,j,p_ch4)=1.7
+!lm                   chem(i,k,j,p_co2)=370.
+!lm                   chem(i,k,j,p_ch4)=1.7
+!lm                    chem(i,k,j,p_co2)=370.
+                   chem(i,k,j,p_ch4)=1.893 !Blasing 2014, current GHG conc (mace head 2013 value)
+                   chem(i,k,j,p_co2)=395.4 !id
+!lm
                    if (p_pcg1_b_c.gt.1)        chem(i,k,j,p_pcg1_b_c)=0.00
                    if (p_pcg2_b_c.gt.1)        chem(i,k,j,p_pcg2_b_c)=0.00
                    if (p_pcg3_b_c.gt.1)        chem(i,k,j,p_pcg3_b_c)=0.00

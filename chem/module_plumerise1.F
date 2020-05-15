@@ -1,4 +1,9 @@
 Module module_plumerise1
+!lm 2015/07: Added a switch to turn plume rise on and off, ifplumerise
+!lm 2015/07: Changed a variable name from 'sum' to 'sum_fires' because sum is
+!            already used in FORTRAN
+!lm 2015/07: I added a new biomass burning emission package for SAPRC, BIOMASSB_SAPRC (namelist option 6)
+!
 ! use module_zero_plumegen_coms
   integer, parameter :: nveg_agreg      = 4
 ! integer, parameter :: tropical_forest = 1
@@ -79,6 +84,9 @@ subroutine plumerise_driver (id,ktau,dtstep,                           &
 ! Local variables...
 !
       INTEGER :: nv, i, j, k, ksub, nspecies
+!lm
+      INTEGER :: ifplumerise
+!lm
 
 
 !     integer, parameter :: nspecies=num_ebu
@@ -88,7 +96,11 @@ subroutine plumerise_driver (id,ktau,dtstep,                           &
                               ,rho_phyin ,qv_in ,zmid    &
                               ,z_lev
 ! real, dimension(nveg_agreg) :: firesize,mean_fct
-      real :: sum, ffirs, ratio
+!lm I changed the variable name from sum to sum_fires because sum is
+! a Fortran function
+!      real :: sum, ffirs, ratio
+      real :: sum_fires, ffirs, ratio
+!lm
 !     real,save,dimension(its:ite,jts:jte) :: ffirs
       ffirs=0.
       nspecies=num_ebu
@@ -182,6 +194,51 @@ subroutine plumerise_driver (id,ktau,dtstep,                           &
              ebu(its:ite,kts,j,p_ebu_bc) = ebu_in(its:ite,1,j,p_ebu_in_bc)
            enddo
          endif
+!lm  New biomass burning emission package for SAPRC
+       elseif ( config_flags%biomass_burn_opt == BIOMASSB_SAPRC ) then
+         do j=jts,jte
+            do i=its,ite
+               ebu(i,kts,j,p_ebu_co) = ebu_in(i,1,j,p_ebu_in_co)
+               ebu(i,kts,j,p_ebu_no) = ebu_in(i,1,j,p_ebu_in_no)
+               ebu(i,kts,j,p_ebu_no2) = ebu_in(i,1,j,p_ebu_in_no2)
+               ebu(i,kts,j,p_ebu_so2) = ebu_in(i,1,j,p_ebu_in_so2)
+               ebu(i,kts,j,p_ebu_nh3) = ebu_in(i,1,j,p_ebu_in_nh3)
+               ebu(i,kts,j,p_ebu_ch4) = ebu_in(i,1,j,p_ebu_in_ch4)
+               ebu(i,kts,j,p_ebu_acet) = ebu_in(i,1,j,p_ebu_in_acet)
+               ebu(i,kts,j,p_ebu_c2h6) = ebu_in(i,1,j,p_ebu_in_c2h6)
+               ebu(i,kts,j,p_ebu_c3h8) = ebu_in(i,1,j,p_ebu_in_c3h8)
+               ebu(i,kts,j,p_ebu_alk3) = ebu_in(i,1,j,p_ebu_in_alk3)
+               ebu(i,kts,j,p_ebu_alk4) = ebu_in(i,1,j,p_ebu_in_alk4)
+               ebu(i,kts,j,p_ebu_alk5) = ebu_in(i,1,j,p_ebu_in_alk5)
+               ebu(i,kts,j,p_ebu_aro1) = ebu_in(i,1,j,p_ebu_in_aro1)
+               ebu(i,kts,j,p_ebu_aro2) = ebu_in(i,1,j,p_ebu_in_aro2)
+               ebu(i,kts,j,p_ebu_bald) = ebu_in(i,1,j,p_ebu_in_bald)
+               ebu(i,kts,j,p_ebu_ccho) = ebu_in(i,1,j,p_ebu_in_ccho)
+               ebu(i,kts,j,p_ebu_cco_oh) = ebu_in(i,1,j,p_ebu_in_cco_oh)
+               ebu(i,kts,j,p_ebu_ethene) = ebu_in(i,1,j,p_ebu_in_ethene)
+               ebu(i,kts,j,p_ebu_hcho) = ebu_in(i,1,j,p_ebu_in_hcho)
+               ebu(i,kts,j,p_ebu_hcooh) = ebu_in(i,1,j,p_ebu_in_hcooh)
+               ebu(i,kts,j,p_ebu_hono) = ebu_in(i,1,j,p_ebu_in_hono)
+               ebu(i,kts,j,p_ebu_isoprene) = ebu_in(i,1,j,p_ebu_in_isoprene)
+               ebu(i,kts,j,p_ebu_mek) = ebu_in(i,1,j,p_ebu_in_mek)
+               ebu(i,kts,j,p_ebu_meoh) = ebu_in(i,1,j,p_ebu_in_meoh)
+               ebu(i,kts,j,p_ebu_methacro) = ebu_in(i,1,j,p_ebu_in_methacro)
+               ebu(i,kts,j,p_ebu_mgly) = ebu_in(i,1,j,p_ebu_in_mgly)
+               ebu(i,kts,j,p_ebu_mvk) = ebu_in(i,1,j,p_ebu_in_mvk)
+               ebu(i,kts,j,p_ebu_ole1) = ebu_in(i,1,j,p_ebu_in_ole1)
+               ebu(i,kts,j,p_ebu_ole2) = ebu_in(i,1,j,p_ebu_in_ole2)
+               ebu(i,kts,j,p_ebu_phen) = ebu_in(i,1,j,p_ebu_in_phen)
+               ebu(i,kts,j,p_ebu_prod2) = ebu_in(i,1,j,p_ebu_in_prod2)
+               ebu(i,kts,j,p_ebu_rcho) = ebu_in(i,1,j,p_ebu_in_rcho)
+               ebu(i,kts,j,p_ebu_rno3) = ebu_in(i,1,j,p_ebu_in_rno3)
+               ebu(i,kts,j,p_ebu_terp) = ebu_in(i,1,j,p_ebu_in_terp)
+               ebu(i,kts,j,p_ebu_pm10) = ebu_in(i,1,j,p_ebu_in_pm10)
+               ebu(i,kts,j,p_ebu_pm25) = ebu_in(i,1,j,p_ebu_in_pm25)
+               ebu(i,kts,j,p_ebu_oc) = ebu_in(i,1,j,p_ebu_in_oc)
+               ebu(i,kts,j,p_ebu_bc) = ebu_in(i,1,j,p_ebu_in_bc)
+            enddo
+         enddo
+!lm
        elseif ( config_flags%biomass_burn_opt == BIOMASSB_GHG ) then
          do j=jts,jte
             do i=its,ite
@@ -190,6 +247,62 @@ subroutine plumerise_driver (id,ktau,dtstep,                           &
                ebu(i,kts,j,p_ebu_ch4) = ebu_in(i,1,j,p_ebu_in_ch4)
             enddo
           enddo
+!lm Add a biomass burning emission package for CBMZ
+       elseif ( config_flags%biomass_burn_opt == BIOMASSB_CBMZ ) then
+         do j=jts,jte
+           do i=its,ite
+             ebu(i,kts,j,p_ebu_no)=ebu_in(i,1,j,p_ebu_in_no)
+             ebu(i,kts,j,p_ebu_co)=ebu_in(i,1,j,p_ebu_in_co)
+             ebu(i,kts,j,p_ebu_c2h4) = ebu_in(i,1,j,p_ebu_in_c2h4)
+             ebu(i,kts,j,p_ebu_c2h5oh) = ebu_in(i,1,j,p_ebu_in_c2h5oh)
+             ebu(i,kts,j,p_ebu_c2h6) = ebu_in(i,1,j,p_ebu_in_c2h6)
+             ebu(i,kts,j,p_ebu_c3h6) = ebu_in(i,1,j,p_ebu_in_c3h6)
+             ebu(i,kts,j,p_ebu_c3h8) = ebu_in(i,1,j,p_ebu_in_c3h8)
+             ebu(i,kts,j,p_ebu_ch2o) = ebu_in(i,1,j,p_ebu_in_ch2o)
+             ebu(i,kts,j,p_ebu_ch3cho) = ebu_in(i,1,j,p_ebu_in_ch3cho)
+             ebu(i,kts,j,p_ebu_ch3coch3) = ebu_in(i,1,j,p_ebu_in_ch3coch3)
+             ebu(i,kts,j,p_ebu_ch3oh) = ebu_in(i,1,j,p_ebu_in_ch3oh)
+             ebu(i,kts,j,p_ebu_mek) = ebu_in(i,1,j,p_ebu_in_mek)
+             ebu(i,kts,j,p_ebu_so2) = ebu_in(i,1,j,p_ebu_in_so2)
+             ebu(i,kts,j,p_ebu_toluene) = ebu_in(i,1,j,p_ebu_in_toluene)
+             ebu(i,kts,j,p_ebu_nh3) = ebu_in(i,1,j,p_ebu_in_nh3)
+             ebu(i,kts,j,p_ebu_no2)=ebu_in(i,1,j,p_ebu_in_no2)
+             ebu(i,kts,j,p_ebu_open) = ebu_in(i,1,j,p_ebu_in_open)
+             ebu(i,kts,j,p_ebu_c10h16) = ebu_in(i,1,j,p_ebu_in_c10h16)
+             ebu(i,kts,j,p_ebu_mgly) = ebu_in(i,1,j,p_ebu_in_mgly)
+             ebu(i,kts,j,p_ebu_ch3cooh) = ebu_in(i,1,j,p_ebu_in_ch3cooh)
+             ebu(i,kts,j,p_ebu_glyald) = ebu_in(i,1,j,p_ebu_in_glyald)
+             ebu(i,kts,j,p_ebu_gly)=ebu_in(i,1,j,p_ebu_in_gly)
+             ebu(i,kts,j,p_ebu_acetol) = ebu_in(i,1,j,p_ebu_in_acetol)
+             ebu(i,kts,j,p_ebu_isop) = ebu_in(i,1,j,p_ebu_in_isop)
+             ebu(i,kts,j,p_ebu_macr) = ebu_in(i,1,j,p_ebu_in_macr)
+             ebu(i,kts,j,p_ebu_mvk)=ebu_in(i,1,j,p_ebu_in_mvk)
+             ebu(i,kts,j,p_ebu_ol2)=ebu_in(i,1,j,p_ebu_in_ol2)
+             ebu(i,kts,j,p_ebu_par)=ebu_in(i,1,j,p_ebu_in_par)
+             ebu(i,kts,j,p_ebu_eth)=ebu_in(i,1,j,p_ebu_in_eth)
+             ebu(i,kts,j,p_ebu_olt)=ebu_in(i,1,j,p_ebu_in_olt)
+             ebu(i,kts,j,p_ebu_oli)=ebu_in(i,1,j,p_ebu_in_oli)
+             ebu(i,kts,j,p_ebu_iso)=ebu_in(i,1,j,p_ebu_in_iso)
+             ebu(i,kts,j,p_ebu_tol)=ebu_in(i,1,j,p_ebu_in_tol)
+             ebu(i,kts,j,p_ebu_csl)=ebu_in(i,1,j,p_ebu_in_csl)
+             ebu(i,kts,j,p_ebu_hcho)=ebu_in(i,1,j,p_ebu_in_hcho)
+             ebu(i,kts,j,p_ebu_ald)=ebu_in(i,1,j,p_ebu_in_ald)
+             ebu(i,kts,j,p_ebu_ket)=ebu_in(i,1,j,p_ebu_in_ket)
+             ebu(i,kts,j,p_ebu_xyl)=ebu_in(i,1,j,p_ebu_in_xyl)
+             ebu(i,kts,j,p_ebu_ora1)=ebu_in(i,1,j,p_ebu_in_ora1)
+             ebu(i,kts,j,p_ebu_ora2)=ebu_in(i,1,j,p_ebu_in_ora2)
+             ebu(i,kts,j,p_ebu_co2)=ebu_in(i,1,j,p_ebu_in_co2)
+             ebu(i,kts,j,p_ebu_ete)=ebu_in(i,1,j,p_ebu_in_ete)
+             ebu(i,kts,j,p_ebu_dien)=ebu_in(i,1,j,p_ebu_in_dien)
+             ebu(i,kts,j,p_ebu_api)=ebu_in(i,1,j,p_ebu_in_api)
+             ebu(i,kts,j,p_ebu_lim)=ebu_in(i,1,j,p_ebu_in_lim)
+             ebu(its:ite,kts,j,p_ebu_pm10) = ebu_in(its:ite,1,j,p_ebu_in_pm10)
+             ebu(its:ite,kts,j,p_ebu_pm25) = ebu_in(its:ite,1,j,p_ebu_in_pm25)
+             ebu(its:ite,kts,j,p_ebu_oc) = ebu_in(its:ite,1,j,p_ebu_in_oc)
+             ebu(its:ite,kts,j,p_ebu_bc) = ebu_in(its:ite,1,j,p_ebu_in_bc)
+           enddo
+         enddo
+!lm
        endif
 !
        do nv=1,num_ebu
@@ -202,16 +315,23 @@ subroutine plumerise_driver (id,ktau,dtstep,                           &
           enddo
        enddo
        
+!lm switch to turn off the plumerise, should be in the namelist
+    ifplumerise = 1
+    if(ifplumerise == 1) then
+!lm       
        do j=jts,jte
           do i=its,ite
-            sum=mean_fct_agtf(i,j)+mean_fct_agef(i,j)+mean_fct_agsv(i,j)    &
+!lm I changed the variable name from sum to sum_fires because sum is
+! a Fortran function 
+            sum_fires=mean_fct_agtf(i,j)+mean_fct_agef(i,j)+mean_fct_agsv(i,j)    &
                     +mean_fct_aggr(i,j)
-            if(sum.lt.1.e-6)Cycle
-!           write(0,*)'before',i,j,ebu_co(i,1,j),sum
+            if(sum_fires.lt.1.e-6)Cycle
+!           write(0,*)'before',i,j,ebu_co(i,1,j),sum_fires
 !           ffirs=ffirs+1
-            sum=firesize_agtf(i,j)+firesize_agef(i,j)+firesize_agsv(i,j)    &
+            sum_fires=firesize_agtf(i,j)+firesize_agef(i,j)+firesize_agsv(i,j)    &
                     +firesize_aggr(i,j)
-            if(sum.lt.1.e-6)Cycle
+            if(sum_fires.lt.1.e-6)Cycle
+!lm
             eburn_out=0.
             mean_fct(1)=mean_fct_agtf(i,j)
             mean_fct(2)=mean_fct_agef(i,j)
@@ -288,12 +408,15 @@ is_mozcart : &
 ! we input total emissions instead of smoldering emissions:
 ! ratio of smolderling to total
 !-------------------------------------------------------------------
-                sum = 0.
+!lm I changed the variable name from sum to sum_fires because sum is
+! a Fortran function
+                sum_fires = 0.
                 do k = kts,kte
-                  sum = sum + ebu(i,k,j,p_ebu_co)
+                  sum_fires = sum_fires + ebu(i,k,j,p_ebu_co)
                 end do
-                if( sum > 0. ) then             
-                  ratio = ebu(i,kts,j,p_ebu_co)/sum
+                if( sum_fires > 0. ) then             
+                  ratio = ebu(i,kts,j,p_ebu_co)/sum_fires
+!lm
                 else
                   ratio = 0.
                 endif
@@ -347,15 +470,17 @@ is_mozcart : &
 ! we input total emissions instead of smoldering emissions:
 ! ratio of smolderling to total
 !-------------------------------------------------------------------
-                 sum = 0.
+!lm
+                 sum_fires = 0.
                  do k = kts,kte
-                   sum = sum + ebu(i,k,j,p_ebu_co)
+                   sum_fires = sum_fires + ebu(i,k,j,p_ebu_co)
                  end do
-                 if( sum > 0. ) then
-                   ratio = ebu(i,kts,j,p_ebu_co)/sum
+                 if( sum_fires > 0. ) then
+                   ratio = ebu(i,kts,j,p_ebu_co)/sum_fires
                  else
                    ratio = 0.
                  endif
+!lm
  
                  do k = kts,kte
                    ebu(i,k,j,p_ebu_no)  = ebu(i,k,j,p_ebu_no)*ratio
@@ -395,6 +520,9 @@ is_mozcart : &
 
           enddo
           enddo
+!lm
+    endif !ifplumerise == 1
+!lm
 end subroutine plumerise_driver
 
 END Module module_plumerise1

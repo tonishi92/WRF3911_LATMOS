@@ -10,7 +10,8 @@
 MODULE module_cbmz_addemiss
 !WRF:MODEL_LAYER:CHEMICS
 
-
+!lm Louis Marelle 2016/5/9:  Add anthropogenic isoprene emissions to CBMZ, 
+                          !  for emiss_inpt other than 1 or 102
 
    integer, parameter :: cbmz_addemiss_masscheck = -1
                        ! only do emissions masscheck calcs when this is positive
@@ -127,6 +128,12 @@ CONTAINS
           print*,"e_tol=",emis_ant(i,k,j,p_e_tol)*conv
           print*,"e_xyl=",emis_ant(i,k,j,p_e_xyl)*conv
           print*,"e_ket=",emis_ant(i,k,j,p_e_ket)*conv
+!jcr
+          print*,"e_no2=",emis_ant(i,k,j,p_e_no2)*conv
+          print*,"e_ch3oh=",emis_ant(i,k,j,p_e_ch3oh)*conv
+          print*,"e_c2h5oh=",emis_ant(i,k,j,p_e_c2h5oh)*conv
+          print*,"e_iso=",emis_ant(i,k,j,p_e_iso)*conv
+!jcr
        end if
 #endif
 
@@ -160,6 +167,16 @@ CONTAINS
                          +emis_ant(i,k,j,p_e_xyl)*conv       
         chem(i,k,j,p_ket)  =  chem(i,k,j,p_ket)                        &
                          +emis_ant(i,k,j,p_e_ket)*conv      
+!jcr
+        chem(i,k,j,p_no2)  =  chem(i,k,j,p_no2)                        &
+                         +emis_ant(i,k,j,p_e_no2)*conv
+        chem(i,k,j,p_ch3oh)  =  chem(i,k,j,p_ch3oh)                    &
+                         +emis_ant(i,k,j,p_e_ch3oh)*conv
+        chem(i,k,j,p_c2h5oh)  =  chem(i,k,j,p_c2h5oh)                  &
+                         +emis_ant(i,k,j,p_e_c2h5oh)*conv
+        chem(i,k,j,p_iso)  =  chem(i,k,j,p_iso)                        &
+                         +emis_ant(i,k,j,p_e_iso)*conv
+!jcr
 
          chem_select_2 : SELECT CASE( config_flags%chem_opt )
 
@@ -192,6 +209,10 @@ CONTAINS
                 + conv*emis_ant(i,k,j,p_e_ch3oh)
             chem(i,k,j,p_c2h5oh) = chem(i,k,j,p_c2h5oh)       &
                 + conv*emis_ant(i,k,j,p_e_c2h5oh)
+!lm Add anthropogenic isoprene emissions to CBMZ, for emiss_inpt other than 1 or 102
+            chem(i,k,j,p_iso)  =  chem(i,k,j,p_iso)           &
+                +emis_ant(i,k,j,p_e_iso)*conv
+!lm
         end if
 
         !BSINGH(01/24/2013): Added for DMS emissions

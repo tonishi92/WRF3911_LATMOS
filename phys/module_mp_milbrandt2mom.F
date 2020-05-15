@@ -838,10 +838,27 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
 
 !_______________________________________________________________________________________!
 
- SUBROUTINE mp_milbrandt2mom_main(WZ,T,Q,QC,QR,QI,QN,QG,QH,NC,NR,NY,NN,NG,NH,PS,          &
+ SUBROUTINE mp_milbrandt2mom_main(WZ,T,Q,QC,QR,QI,QN,QG,QH,NC,NR,NY,NN,NG,NH,             &
+#if ( WRF_CHEM == 1) 
+     chem,                                                                                &
+#endif
+     PS,                                                                                  &
      sigma,RT_rn1,RT_rn2,RT_fr1,RT_fr2,RT_sn1,RT_sn2,RT_sn3,RT_pe1,RT_pe2,RT_peL,RT_snd,  &
      dt,NI,NK,J,KOUNT,CCNtype,precipDiag_ON,sedi_ON,warmphase_ON,autoconv_ON,icephase_ON, &
      snow_ON,Dm_c,Dm_r,Dm_i,Dm_s,Dm_g,Dm_h,ZET,ZEC,SS,nk_bottom)
+
+#if ( WRF_CHEM == 1)
+  use module_configure, only:                                                             &
+     p_nh3,                                                                               &
+     p_so4_a01, p_so4_a02, p_so4_a03, p_so4_a04,                                          &
+     p_so4_a05, p_so4_a06, p_so4_a07, p_so4_a08,                                          &
+     p_nh4_a01, p_nh4_a02, p_nh4_a03, p_nh4_a04,                                          &
+     p_nh4_a05, p_nh4_a06, p_nh4_a07, p_nh4_a08,                                          &
+     p_oin_a01, p_oin_a02, p_oin_a03, p_oin_a04,                                          &                                                     
+     p_oin_a05, p_oin_a06, p_oin_a07, p_oin_a08,                                          &
+     p_no3_a01, p_no3_a02, p_no3_a03, p_no3_a04,                                          &
+     p_no3_a05, p_no3_a06, p_no3_a07, p_no3_a08
+#endif
 
   implicit none
 
@@ -853,6 +870,9 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
                                           RT_sn3,RT_pe1,RT_pe2,RT_peL,ZEC,RT_snd
   real, dimension(:,:),  intent(in)    :: WZ,sigma
   real, dimension(:,:),  intent(inout) :: T,Q,QC,QR,QI,QN,QG,QH,NC,NR,NY,NN,NG,NH
+#if ( WRF_CHEM == 1 )
+  real, dimension(:,:,:),intent(in)    :: chem
+#endif
   real, dimension(:,:),  intent(out)   :: ZET,Dm_c,Dm_r,Dm_i,Dm_s,Dm_g,Dm_h
   real, dimension(:,:,:),intent(out)   :: SS
   logical,               intent(in)    :: precipDiag_ON,sedi_ON,icephase_ON,snow_ON,     &
@@ -1172,7 +1192,11 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
   logical, parameter :: hail_ON       = .true.  !.false. to suppress hail initiation
   logical, parameter :: rainAccr_ON   = .true.  ! rain accretion and self-collection ON/OFF
   logical, parameter :: snowSpherical = .false. !.true.: m(D)=(pi/6)*const_des*D^3 | .false.: m(D)= 0.069*D^2
-  integer, parameter :: primIceNucl   = 1       !1= Meyers+contact ;  2= Cooper
+  integer, parameter :: primIceNucl   = 1       !EG 1= Meyers+contact ;  2= Cooper; 3=CNT
+  integer, parameter :: optionCNT     = 1       !KS 1= Coopled ;  2= Teta12 Uncoated dust; 3= Teta26 coated dust
+  integer, parameter :: immer         = 0       !EG 0= No immersion freezing of cloud droplets; 1= Admundsen 2014 CNT
+  integer, parameter :: contact       = 1       !EG 0= No contact freezing; 1= Contact freezing ON
+  integer, parameter :: homof         = 1       !EG 0= No homo freezing; 1= homo freezing
   real,    parameter :: outfreq       =  60.    !frequency to compute output diagnostics [s]
 
   real, dimension(size(QC,dim=1),size(QC,dim=2)) :: DE,iDE,iDP,QSW,QSI,DZ,iDZ,zz,VQQ,    &
@@ -1180,6 +1204,40 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
   real, dimension(size(QC,dim=1))                :: fluxM_r,fluxM_i,fluxM_s,fluxM_g,     &
         fluxM_h,dum
   integer, dimension(size(QC,dim=1))             :: activeColumn
+
+! CNT variables declaration
+
+  real, parameter::  CTurn=1.7e11             !Turnb-Vonneg const, 1.7*10^11 erg/cm-3 21 Nov 2006, PK97 p243
+  real, parameter::  sig_iv0=106.5            !egr/cm^2, 14 November 1998, PK97, p160
+  real, parameter::  Rvap=4.615e6             !egr g^-1 K-1, PK97, p. 160
+  real, parameter::  RHOIMEAN=0.9             !g.cm^-3 mean ice density
+  real, parameter::  akbol=1.3804e-16         !erg/K, Bolztmann constant
+  real, parameter::  epsil=0.
+  !real, parameter::  raeros=0.39e-6           !average dust radius in meter
+  !real, parameter::  aeronum=1000000.         !TOTAL AEROSOL CONCENTRATION, MODE 1 for MPACE (m-3)
+  !real, parameter::  aeronum=1.e4         !Used as potential INP conc in acid and uncoated dust (m-3)
+  real, parameter::  aeronumi=1.e8         !Used for Admundsen 2014 Campaign (immersion freezing)
+  real, parameter::  rad=1.05e-5
+
+! Mean diameter in um of MOSAIC 8 bins version
+
+  real, parameter:: dmean1=0.0586
+  real, parameter:: dmean2=0.11705
+  real, parameter:: dmean3=0.2345
+  real, parameter:: dmean4=0.469
+  real, parameter:: dmean5=0.9375
+  real, parameter:: dmean6=1.875
+  real, parameter:: dmean7=3.75
+  real, parameter:: dmean8=7.5
+
+  !REAL :: rgerms
+  REAL :: rgerms, satw
+  REAL :: nh4, so4, nh3, f, no3, qcm, hps, s, qm, incm, ncm, dust, dmeandust
+  REAL :: teta, wetcoef, xxx, fisize, xmfi, ccc1, ccc2, ccc3, raeros
+  REAL :: fshape, FGERMS, coefnucl, AJLSHetSD, AJLSHetS, aeronum, densite
+  !REAL :: PODYNTEG4, TEXPTFR2,  PODNTEG_DEP
+  REAL :: PODYNTEG4, TEXPTFR2,  PODNTEG_DEP,  PODNTEG_DEPI !EG
+  REAL :: XN2depDT
 
  !-- for use with sedimentation on subset of levels:
  !integer                                        :: k_sub,nk_sub,nk_skip
@@ -1612,10 +1670,10 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
       IF (activePoint(i,k)) THEN
 
        Tc= T(i,k)-TRPL
-       if (Tc<-120. .or. Tc>50.) then
-          print*, '***WARNING*** -- In MICROPHYSICS --  Ambient Temp.(C),step,i,k:',Tc,kount,i,k
-         !stop
-       endif
+       !if (Tc<-120. .or. Tc>50.) then
+       !   print*, '***WARNING*** -- In MICROPHYSICS --  Ambient Temp.(C),step,i,k:',Tc,kount,i,k
+       !  !stop
+       !endif
        Cdiff = (2.2157e-5+0.0155e-5*Tc)*1.e5/pres(i,k)
        MUdyn = 1.72e-5*(393./(T(i,k)+120.))*(T(i,k)/TRPL)**1.5 !RYp.102
        MUkin = MUdyn*iDE(i,k)
@@ -2119,7 +2177,8 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
           !  ICE:  !
           !--------!
           ! Homogeneous freezing of cloud to ice:
-          if (QC(i,k)>epsQ) then
+          !if (QC(i,k)>epsQ) then
+          if (homof==1 .and. QC(i,k)>epsQ) then
              tmp2  = Tc*Tc; tmp3= tmp2*Tc; tmp4= tmp2*tmp2
              JJ    = (10.**max(-20.,(-606.3952-52.6611*Tc-1.7439*tmp2-0.0265*tmp3-    &
                       1.536e-4*tmp4)))
@@ -2133,64 +2192,263 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
              QFZci= 0.;   NFZci= 0.
           endif
 
+          satw=q(i,k)/qsw(i,k) !EG
+
+          NuDEPSOR= 0.;   NuCONT= 0.
+
+        if (QSI(i,k)>1.e-20) then
+        Simax = min(Si, satw_peak*QSW(i,k)/QSI(i,k))
+        else
+        Simax = 0.
+        endif
+        tmp1    = T(i,k)-7.66
+        NNUmax  = max(0., DE(i,k)/mio*(Q(i,k)-QSI(i,k))/(1.+ck6*(QSI(i,k)/(tmp1*    &
+        tmp1))))
+
           !Primary ice nucleation:
           NNUvi= 0.;   QNUvi= 0.
           if (primIceNucl==1) then
 
-             NuDEPSOR= 0.;   NuCONT= 0.
-             if (QSI(i,k)>1.e-20) then
-                Simax = min(Si, satw_peak*QSW(i,k)/QSI(i,k))
-             else
-                Simax = 0.
-             endif
-             tmp1    = T(i,k)-7.66
-             NNUmax  = max(0., DE(i,k)/mio*(Q(i,k)-QSI(i,k))/(1.+ck6*(QSI(i,k)/(tmp1*    &
-                       tmp1))))
+             ! NuDEPSOR= 0.;   NuCONT= 0.
+             ! if (QSI(i,k)>1.e-20) then
+             !    Simax = min(Si, satw_peak*QSW(i,k)/QSI(i,k))
+             ! else
+             !    Simax = 0.
+             ! endif
+             ! tmp1    = T(i,k)-7.66
+             ! NNUmax  = max(0., DE(i,k)/mio*(Q(i,k)-QSI(i,k))/(1.+ck6*(QSI(i,k)/(tmp1*    &
+             !           tmp1))))
              !Deposition/sorption nucleation:
              if (Tc<-5. .and. Si>1.) then
                 NuDEPSOR= max(0., 1.e3*exp(12.96*(Simax-1.)-0.639)-(NY(i,k))) !Meyers(1992)
              endif
-             !Contact nucleation:
-             if (QC(i,k)>epsQ .and. Tc<-2. .and. WZ(i,k)>0.001) then
-                GG     =  1.*idew/(RGASV*(T(i,k))/((QSW(i,k)*pres(i,k))/EPS1)/          &
-                            Cdiff+CHLC/Ka/(T(i,k))*(CHLC/RGASV/(T(i,k))-1.))  !CP00a
-                Swmax  =  SxFNC(WZ(i,k),Tc,pres(i,k),QSW(i,k),QSI(i,k),CCNtype,1)
-                if (QSW(i,k)>1.e-20) then
-                   ssat=  min((Q(i,k)/QSW(i,k)), Swmax) -1.
-                else
-                   ssat= 0.
-                endif
-                Tcc    =  Tc + GG*ssat*CHLC/Kdiff                            !C86_eqn64
-                Na     =  exp(4.11-0.262*Tcc)                                !W95_eqn60/M92_2.6
-                Kn     =  LAMa0*(T(i,k))*p0/(T0*pres(i,k)*Ra)               !W95_eqn59
-                PSIa   =  -kBoltz*Tcc/(6.*pi*Ra*MUdyn)*(1.+Kn)               !W95_eqn58
-                ft     =  0.4*(1.+1.45*Kn+0.4*Kn*exp(-1./Kn))*(Ka+2.5*Kn*KAPa)/          &
-                         (1.+3.*Kn)/(2.*Ka+5.*KAPa*Kn+KAPa)                  !W95_eqn57
-                Dc     =  (DE(i,k)*(QC(i,k)*iNC)*icmr)**thrd
-                F1     =  PI2*Dc*Na*(NC(i,k))                               !W95_eqn55
-                F2     =  Ka/pres(i,k)*(Tc-Tcc)                              !W95_eqn56
-                NuCONTA= -F1*F2*RGASV*(T(i,k))/CHLC*iDE(i,k)                !diffusiophoresis
-                NuCONTB=  F1*F2*ft*iDE(i,k)                                  !thermeophoresis
-                NuCONTC=  F1*PSIa                                            !Brownian diffusion
-                NuCONT =  max(0.,(NuCONTA+NuCONTB+NuCONTC)*dt)
-             endif
-             !Total primary ice nucleation:
-             if (icephase_ON) then
-                NNUvi= min(NNUmax, NuDEPSOR + NuCONT )
-                QNUvi= mio*iDE(i,k)*NNUvi
-                QNUvi= min(QNUvi,(Q(i,k)))
-             endif
+             ! !Contact nucleation:
+             ! if (QC(i,k)>epsQ .and. Tc<-2. .and. WZ(i,k)>0.001) then
+             !    GG     =  1.*idew/(RGASV*(T(i,k))/((QSW(i,k)*pres(i,k))/EPS1)/          &
+             !                Cdiff+CHLC/Ka/(T(i,k))*(CHLC/RGASV/(T(i,k))-1.))  !CP00a
+             !    Swmax  =  SxFNC(WZ(i,k),Tc,pres(i,k),QSW(i,k),QSI(i,k),CCNtype,1)
+             !    if (QSW(i,k)>1.e-20) then
+             !       ssat=  min((Q(i,k)/QSW(i,k)), Swmax) -1.
+             !    else
+             !       ssat= 0.
+             !    endif
+             !    Tcc    =  Tc + GG*ssat*CHLC/Kdiff                            !C86_eqn64
+             !    Na     =  exp(4.11-0.262*Tcc)                                !W95_eqn60/M92_2.6
+             !    Kn     =  LAMa0*(T(i,k))*p0/(T0*pres(i,k)*Ra)               !W95_eqn59
+             !    PSIa   =  -kBoltz*Tcc/(6.*pi*Ra*MUdyn)*(1.+Kn)               !W95_eqn58
+             !    ft     =  0.4*(1.+1.45*Kn+0.4*Kn*exp(-1./Kn))*(Ka+2.5*Kn*KAPa)/          &
+             !             (1.+3.*Kn)/(2.*Ka+5.*KAPa*Kn+KAPa)                  !W95_eqn57
+             !    Dc     =  (DE(i,k)*(QC(i,k)*iNC)*icmr)**thrd
+             !    F1     =  PI2*Dc*Na*(NC(i,k))                               !W95_eqn55
+             !    F2     =  Ka/pres(i,k)*(Tc-Tcc)                              !W95_eqn56
+             !    NuCONTA= -F1*F2*RGASV*(T(i,k))/CHLC*iDE(i,k)                !diffusiophoresis
+             !    NuCONTB=  F1*F2*ft*iDE(i,k)                                  !thermeophoresis
+             !    NuCONTC=  F1*PSIa                                            !Brownian diffusion
+             !    NuCONT =  max(0.,(NuCONTA+NuCONTB+NuCONTC)*dt)
+             ! endif
+             ! !Total primary ice nucleation:
+             ! if (icephase_ON) then
+             !    NNUvi= min(NNUmax, NuDEPSOR + NuCONT )
+             !    QNUvi= mio*iDE(i,k)*NNUvi
+             !    QNUvi= min(QNUvi,(Q(i,k)))
+             ! endif
 
           elseif (primIceNucl==2) then
              if (Tc<-5. .and. Si>1.08) then !following Thompson etal (2006)
                 NNUvi= max(N_Cooper(TRPL,T(i,k))-NY(i,k),0.)
                 QNUvi= min(mio*iDE(i,k)*NNUvi, Q(i,k))
              endif
-         !elseif (primIceNucl==3) then
-         !! (for alternative [future] ice nucleation parameterizations)
-         !   NNUvi=...
-         !   QNUvi=...
+!EG============================== CNT PRIMARY ICE NUCLEATION ===========================================
+
+          elseif (primIceNucl==3) then
+           !! (CNT with contact angle and contact nucleation)
+              if (Si>1.) then
+                 rgerms=2.*sig_iv0/(Rvap*T(i,k)*LOG(Si)-CTurn*epsil**2.0)
+                 if (rgerms.lt.0.) go to 1111
+          !AS, Contact angle, degrees, Dymarska Msc. Thesis 2005)
+!                 teta=12.  !Uncoated dust
+!                 teta=26.  !Acid case
+!                 teta=(-0.0112*tc*tc)+(-0.9566*tc)+7.7245   !Admundsen 2014 Campaign
+
+!         Find the mean radius and number conc of dust particles
+
+                 dust= chem(i,k,p_oin_a01)+chem(i,k,p_oin_a02)             &                                                                   
+                      +chem(i,k,p_oin_a03)+chem(i,k,p_oin_a04)             &                                                                    
+                      +chem(i,k,p_oin_a05)+chem(i,k,p_oin_a06)             &                                                                    
+                      +chem(i,k,p_oin_a07)+chem(i,k,p_oin_a08)
+
+
+                 dmeandust=(dmean1*chem(i,k,p_oin_a01))+(dmean2*chem(i,k,p_oin_a02))             &                                                                      
+                      +(dmean3*chem(i,k,p_oin_a03))+(dmean4*chem(i,k,p_oin_a04))             &                                                                    
+                      +(dmean5*chem(i,k,p_oin_a05))+(dmean6*chem(i,k,p_oin_a06))             &                                                                    
+                      +(dmean7*chem(i,k,p_oin_a07))+(dmean8*chem(i,k,p_oin_a08))
+
+                 dmeandust=dmeandust/dust
+                 raeros=(dmeandust/2.)*1.e-6     !from um to m
+
+                 densite=pres(i,k)/(287.*T(i,k))
+
+                 dust=dust*densite*1.e-9    !from ug kg-1 to kg m3
+
+                 aeronum=dust/((4./3.)*3.14159*2000.*raeros*raeros*raeros)
+                 
+
+          !EG, Contact angle determined using the neutralization factor (Fisher et al., 2011)
+!                 nh4=                    !molar unit per m3 of nh4+
+                  nh4= chem(i,k,p_nh4_a01)+chem(i,k,p_nh4_a02)             &
+                      +chem(i,k,p_nh4_a03)+chem(i,k,p_nh4_a04)             &
+                      +chem(i,k,p_nh4_a05)+chem(i,k,p_nh4_a06)             &
+                      +chem(i,k,p_nh4_a07)+chem(i,k,p_nh4_a08) 
+                  nh4= nh4/18.038          ![ug/kg-dryair] -> [u mol/kg-dryair]
+!                 so4=                    !molar unit per m3 of so4--
+!                chem : unit [ug/kg-dryair]
+                  so4= chem(i,k,p_so4_a01)+chem(i,k,p_so4_a02)             &
+                      +chem(i,k,p_so4_a03)+chem(i,k,p_so4_a04)             &
+                      +chem(i,k,p_so4_a05)+chem(i,k,p_so4_a06)             &
+                      +chem(i,k,p_so4_a07)+chem(i,k,p_so4_a08) 
+                  so4= so4/96.062          ![ug/kg-dryair] -> [u mol/kg-dryair]
+!                 no3=                    !molar unit per m3 of nh3-
+                  no3= chem(i,k,p_no3_a01)+chem(i,k,p_no3_a02)          &
+                      +chem(i,k,p_no3_a03)+chem(i,k,p_no3_a04)          &
+                      +chem(i,k,p_no3_a05)+chem(i,k,p_no3_a06)          &
+                      +chem(i,k,p_no3_a07)+chem(i,k,p_no3_a08)          
+
+                  no3= no3/62.0049          ![ug/kg-dryair] -> [u mol/kg-dryair]
+                  f=nh4/((2.*so4)+no3)     !Neutralization factor
+                  f=min(f,1.)
+                 
+                 if (optionCNT==1) then !KS
+                 
+                ! teta=26.-14.*f**4.        !teta close to 26 for 0.< f < 0.5 with a rapid decrease between 0.5 and 1
+                  teta=26.-14.*f**2.        !teta with a more progressive decrease
+                 ! teta=12.
+                 ! teta=26.-14.*f            !teta with a linear decrease
+
+                 elseif (optionCNT==2) then
+                     teta=12.  !Uncoated dust
+                 elseif (optionCNT==3) then
+                     teta=26.  !Acid case
+                 endif !if (optionCNT==1) 
+
+
+                 ! wetcoef=cosd(teta)
+                 wetcoef=cos((teta*pi)/180.)
+                 xxx=raeros*100/rgerms !12 Nov 1998, start
+                 fisize=(1.-2.*wetcoef*xxx+xxx**2.)**0.5 !12 Nov 1998, PK97, p. 302
+                 xmfi=(xxx-wetcoef)/fisize
+
+                 ! write(*,*) 'check 01 : xmfi = ', xmfi
+                 ! write(*,*) 'check 01 : nh4  = ', nh4
+                 ! write(*,*) 'check 01 : so4  = ', so4
+                 ! write(*,*) 'check 01 : nh3  = ', nh3
+
+!********SHAPE FACTOR*********************
+
+                 ccc1=((1.-wetcoef*xxx)/fisize)**3
+                 ccc2=(xxx**3.)*(2.-3.*xmfi+xmfi**3.)
+                 ccc3=3.*wetcoef*(xxx**2.)*(xmfi-1.)
+                 fshape=0.5*(1.+ccc1+ccc2+ccc3)
+                 FGERMS=4./3.*3.1416*sig_iv0*(rgerms**2.0)*fshape !Germ energy with shape
+                 coefnucl=1.e26*raeros**2.0 !preexpon. factor in PK97, p.303, ice-vapor
+                 AJLSHetSD=coefnucl*exp(-(FGERMS)/(akbol*T(i,k))) !s^-1, heterogen salt nucleation rate
+                                                                    !PK97, p. 342, KS.98
+                 if (AJLSHetSD.lt.1.e-37) AJLSHetSD=1.e-37
+                 AJLSHetS=REAL(AJLSHetSD)
+                 TEXPTFR2=1.-exp(-AJLSHetS*dt) !14 october 1999, SLC,!Probability of nucleation in timestep
+                 PODNTEG_DEP=TEXPTFR2*aeronum !(1-exp(-Jls-dep*DT)*f(kr) for Nnucl in m^-3
+                 PODNTEG_DEP=min(aeronum,PODNTEG_DEP) !more nucleated particles than activated
+
+                 NuDEPSOR=PODNTEG_DEP !Total cryst. conc. nucleated depos in DT, in cm^-3
+                 if (NuDEPSOR.lt.1e-40) NuDEPSOR=1e-40
+ 1111            continue
+
+             end if
           endif !if (primIceNucl==1)
+
+!              !immersion nucleation
+!
+              if (immer==1) then !EG
+           !! (CNT with contact angle and contact nucleation)
+              if (QC(i,k)>epsQ .and. Si>1. .and. Tc<-10.) then
+                 rgerms=2.*sig_iv0/(Rvap*T(i,k)*LOG(Si)-CTurn*epsil**2.0)
+                 if (rgerms.lt.0.) go to 1112
+          !AS, Contact angle, degrees, Dymarska Msc. Thesis 2005)
+!                 teta=12.  !Uncoated dust
+!                 teta=26.  !Acid case
+                 teta=(-0.0112*tc*tc)+(-0.9566*tc)+7.7245   !Admundsen 2014 Campaign
+
+
+          !EG, Contact angle determined using the neutralization factor (Fisher et al., 2011)
+!                 nh4=                    !molar unit per m3 of nh4+
+!                 so4=                    !molar unit per m3 of so4--
+!                 nh3=                    !molar unit per m3 of nh3-
+!                 f=nh4/(so4+no3)         !Neutralization factor
+!                 f=min(f,1.)
+!                 teta=26.-14.*f**4.        !teta close to 26 for 0.< f < 0.5 with a rapid decrease between 0.5 andc 1
+!                 teta=26.-14.*f**2.        !teta with a more progressive decrease
+!                 teta=26.-14.*f            !teta with a linear decreasec
+
+                 wetcoef=cos((teta*pi)/180.)
+                 xxx=raeros*100/rgerms !12 Nov 1998, start
+                 fisize=(1.-2.*wetcoef*xxx+xxx**2.)**0.5 !12 Nov 1998, PK97, p. 302
+                 xmfi=(xxx-wetcoef)/fisize
+
+!********SHAPE FACTOR*********************
+
+                 ccc1=((1.-wetcoef*xxx)/fisize)**3
+                 ccc2=(xxx**3.)*(2.-3.*xmfi+xmfi**3.)
+                 ccc3=3.*wetcoef*(xxx**2.)*(xmfi-1.)
+                 fshape=0.5*(1.+ccc1+ccc2+ccc3)
+                 FGERMS=4./3.*3.1416*sig_iv0*(rgerms**2.0)*fshape !Germ energy with shape
+                 coefnucl=1.e26*raeros**2.0 !preexpon. factor in PK97, p.303, ice-vapor
+                 AJLSHetSD=coefnucl*exp(-(FGERMS)/(akbol*T(i,k))) !s^-1, heterogen salt nucleation rate
+                                                                    !PK97, p. 342, KS.98
+                 if (AJLSHetSD.lt.1.e-37) AJLSHetSD=1.e-37
+                 AJLSHetS=REAL(AJLSHetSD)
+                 TEXPTFR2=1.-exp(-AJLSHetS*dt) !14 october 1999, SLC,!Probability of nucleation in timestep
+                 PODNTEG_DEP=TEXPTFR2*aeronumi !(1-exp(-Jls-dep*DT)*f(kr) for Nnucl in m^-3
+                 PODNTEG_DEPI=min(NC(i,k),PODNTEG_DEP) !more nucleated particles than activated
+
+                 NuDEPSOR=NUDEPSOR+PODNTEG_DEPI !Total cryst. conc. nucleated depos in DT, in cm^-3
+                 if (NuDEPSOR.lt.1e-40) NuDEPSOR=1e-40
+ 1112          continue
+          endif
+          endif !if (immer==1)
+
+!Contact nucleation:                                                                                                                            
+          ! if (QC(i,k)>epsQ .and. Tc<-2.) then
+          if (contact==1 .and. QC(i,k)>epsQ .and. Tc<-2. .and. WZ(i,k)>0.001) then
+               GG     =  1.*idew/(RGASV*(T(i,k))/((QSW(i,k)*PS(i)*Sigma(i,k))/EPS1)/      &                                                                   
+               Cdiff+CHLC/Ka/(T(i,k))*(CHLC/RGASV/(T(i,k))-1.))  !CP00a                                                                       
+               ! Swmax  =  SxFNC(WZ(i,k),Tc,PS(i)*Sigma(i,k),QSW(i,k),QSI(i,k),CCNtype,1)                                                                        
+               Swmax  =  SxFNC(WZ(i,k),Tc,pres(i,k),QSW(i,k),QSI(i,k),CCNtype,1)
+               if (QSW(i,k)>1.e-20) then
+                 ssat =  min((Q(i,k)/QSW(i,k)), Swmax) -1.
+               else
+                 ssat= 0.
+               endif
+               Tcc    =  Tc + GG*ssat*CHLC/Kdiff                            !C86_eqn64                                                                      
+               Na     =  exp(4.11-0.262*Tcc)                                !W95_eqn60/M92_2.6                                                              
+               ! Kn     =  LAMa0*(T(i,k))*p0/(T0*(PS(i)*Sigma(i,k))*Ra)         !W95_eqn59                                                                      
+               Kn     =  LAMa0*(T(i,k))*p0/(T0*pres(i,k)*Ra)               !W95_eqn59
+               PSIa   =  -kBoltz*Tcc/(6.*pi*Ra*MUdyn)*(1.+Kn)               !W95_eqn58                                                                      
+               ft     =  0.4*(1.+1.45*Kn+0.4*Kn*exp(-1./Kn))*(Ka+2.5*Kn*KAPa)/          &                                                                   
+                        (1.+3.*Kn)/(2.*Ka+5.*KAPa*Kn+KAPa)                  !W95_eqn57                                                                      
+               Dc     =  (DE(i,k)*(QC(i,k)*iNC)*icmr)**thrd
+               F1     =  PI2*Dc*Na*(NC(i,k))                               !W95_eqn55                                                                      
+               ! F2     =  Ka/(PS(i)*Sigma(i,k))*(Tc-Tcc)                   !W95_eqn56                                                                      
+               F2     =  Ka/pres(i,k)*(Tc-Tcc)                              !W95_eqn56
+               NuCONTA= -F1*F2*RGASV*(T(i,k))/CHLC*iDE(i,k)                !diffusiophoresis                                                               
+               NuCONTB=  F1*F2*ft*iDE(i,k)                                  !thermeophoresis                                                                
+               NuCONTC=  F1*PSIa                                            !Brownian diffusion                                                             
+               NuCONT =  max(0.,(NuCONTA+NuCONTB+NuCONTC)*dt)
+               endif
+               !Total primary ice nucleation:                                                                                                                  
+               if (icephase_ON) then
+                  NNUvi= min(NNUmax, NuDEPSOR + NuCONT )
+                  QNUvi= mio*iDE(i,k)*NNUvi
+                  QNUvi= min(QNUvi,(Q(i,k)))
+               endif
 
 
 
@@ -2200,8 +2458,8 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
 !            No_i  = NY(i,k)*iGI31/iLAMi**(1.+alpha_i)
 !            VENTi= Avx*GI32*iLAMi**(2.+alpha_i)+Bvx*ScTHRD*sqrt(gam*afi*iMUkin)*GI6*    &
 !                     iLAMi**(2.5+0.5*bfi+alpha_i)
-             No_i  = NY(i,k)*iGI31/iLAMi    !optimized for alpha_i=0
-             VENTi= Avx*GI32*iLAMi*iLAMi+Bvx*ScTHRD*sqrt(gam*afi*iMUkin)*GI6*iLAMi**     &
+            No_i  = NY(i,k)*iGI31/iLAMi    !optimized for alpha_i=0
+            VENTi= Avx*GI32*iLAMi*iLAMi+Bvx*ScTHRD*sqrt(gam*afi*iMUkin)*GI6*iLAMi**     &
                     (2.5+0.5*bfi+alpha_i)
             !Note: ice crystal capacitance is implicitly C = 0.5*D*capFact_i
 !            QVDvi= dt*capFact_i*iABi*(PI2*(Si-1.)*No_i*VENTi)
@@ -2253,7 +2511,6 @@ SUBROUTINE sedi_1D(QX1d,NX1d,cat,DE1d,iDE1d,iDP1d,gamfact1d,epsQ,epsN,dmx,VxMax,
                 QCLir= dt*cmi*Eri*PIov4*iDE(i,k)*(NR(i,k)*NY(i,k))*iGI31*iGR31*tmp3*     &
                        (GI36*GR31*iLAMi5+2.*GI35*GR32*iLAMi4*iLAMr+GI34*GR33*iLAMi3*     &
                        iLAMr2)
-
                 NCLri= dt*PIov4*Eri*(NR(i,k)*NY(i,k))*iGI31*iGR31*tmp3*(GI33*GR31*       &
                        iLAMi2+2.*GI32*GR32*iLAMi*iLAMr+GI31*GR33*iLAMr2)
 
@@ -3560,10 +3817,15 @@ END MODULE my2_mod
                               nh, th, pii, p, w, dz, dt_in, itimestep, p8w,               & 
                               RAINNC, RAINNCV, SNOWNC, SNOWNCV, GRPLNC, GRPLNCV,          &
                               HAILNC, HAILNCV, SR, Zet,                                   &
+#if ( WRF_CHEM == 1 )
+                              chem,                                                       &
+#endif
                               ids,ide, jds,jde, kds,kde,                                  &  ! domain dims
                               ims,ime, jms,jme, kms,kme,                                  &  ! memory dims
                               its,ite, jts,jte, kts,kte)                                     ! tile dims
-
+#if ( WRF_CHEM == 1 )
+      USE module_state_description, only: num_chem
+#endif
       implicit none
 
  !Subroutine arguments:
@@ -3604,6 +3866,9 @@ END MODULE my2_mod
 
       real, parameter    :: statfreq  = 300.     !frequency (seconds) to output block stats
 
+#if ( WRF_CHEM == 1 )
+      real, dimension(ims:ime, kms:kme, jms:jme, 1:num_chem), intent(in) :: chem 
+#endif
 !+---+
       i2d_max  = ite-its+1
       k2d_max  = kte-kts+1
@@ -3660,6 +3925,9 @@ END MODULE my2_mod
                qs(its:ite,kts:kte,j),qg(its:ite,kts:kte,j),qh(its:ite,kts:kte,j),   &
                nc(its:ite,kts:kte,j),nr(its:ite,kts:kte,j),ni(its:ite,kts:kte,j),   &
                ns(its:ite,kts:kte,j),ng(its:ite,kts:kte,j),nh(its:ite,kts:kte,j),   &
+#if ( WRF_CHEM == 1)
+               chem(its:ite,kts:kte,j,:),                                           &
+#endif
                p_sfc,sigma2d,rt_rn1,rt_rn2,rt_fr1,rt_fr2,rt_sn1,rt_sn2,rt_sn3,      &
                rt_pe1,rt_pe2,rt_peL,rt_snd,dt,i2d_max,k2d_max,j,itimestep,CCNtype,  &
                precipDiag_ON,sedi_ON,warmphase_ON,autoconv_ON,icephase_ON,snow_ON,  &

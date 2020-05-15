@@ -33,6 +33,8 @@
 #  define XXPCTHXX(...) MUT(__VA_ARGS__)
 #endif
 
+#define BPRC_MODS
+
 !wrf:MODEL_LAYER:DYNAMICS
 !
 
@@ -4746,6 +4748,11 @@ END SUBROUTINE pole_point_bc
                          z, z_at_w, dz8w,                             &  ! output
                          p_hyd, p_hyd_w, dnw,                         &  ! output
                          fzm, fzp, znw, p_top,                        &  ! params
+#ifdef BPRC_MODS
+! bai ===============================fix in-run sea ice update=========
+                         lu_index,                                    &
+!======================================================================
+#endif
                          ids, ide, jds, jde, kds, kde,                &
                          ims, ime, jms, jme, kms, kme,                &
                          its, ite, jts, jte, kts, kte                )
@@ -4805,6 +4812,11 @@ END SUBROUTINE pole_point_bc
    REAL, DIMENSION( kms:kme ) ,            INTENT(IN   ) ::     c1h, c2h, c1f, c2f
 
    REAL, DIMENSION( kms:kme ) :: c1, c2
+
+#ifdef BPRC_MODS
+   REAL ,  DIMENSION( ims:ime, jms:jme ),   INTENT(INOUT)   ::   lu_index                  !! bai  add lu_index
+#endif
+
    INTEGER :: i_start, i_end, j_start, j_end, k_start, k_end, i_startu, j_startv
    INTEGER :: i, j, k
    REAL    :: w1, w2, z0, z1, z2

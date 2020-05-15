@@ -1,4 +1,5 @@
 !WRF:MEDIATION_LAYER:PHYSICS
+#define BPRC_MODS
 !
 MODULE module_surface_driver
 CONTAINS
@@ -33,6 +34,11 @@ CONTAINS
      &          ,t_phy,u10,udrunoff,ust,uz0                           &
      &          ,u_frame,u_phy,v10,vegfra,uoce,voce                   &
      &          ,vz0,v_frame,v_phy,warm_rain,wspd,xice,xland,z,znt    &
+#ifdef BPRC_MODS
+! bai 20141023=========================================================
+                ,landmask,lu_index                                    &
+!======================================================================
+#endif
      &          ,max_edom,cplmask                                     &
 #if (HWRF==1)
      &          ,mznt                                                 &
@@ -559,10 +565,15 @@ CONTAINS
    INTEGER, INTENT(IN)::   SEAICE_SNOWDEPTH_OPT
    REAL,    INTENT(IN)::   SEAICE_SNOWDEPTH_MAX
    REAL,    INTENT(IN)::   SEAICE_SNOWDEPTH_MIN
+#ifdef BPRC_MODS
+   INTEGER, INTENT(INOUT)::   IFNDALBSI               ! bai
+   INTEGER, INTENT(INOUT)::   IFNDICEDEPTH            ! bai
+   INTEGER, INTENT(INOUT)::   IFNDSNOWSI              ! bai
+#else
    INTEGER, INTENT(IN)::   IFNDALBSI
    INTEGER, INTENT(IN)::   IFNDICEDEPTH
    INTEGER, INTENT(IN)::   IFNDSNOWSI
-
+#endif
    INTEGER, INTENT(IN)::   NLCAT, mosaic_lu, mosaic_soil
    INTEGER, INTENT(IN)::   NSCAT
    INTEGER,  INTENT(IN )  :: LakeModel
@@ -581,6 +592,12 @@ CONTAINS
 
    INTEGER, DIMENSION( ims:ime , jms:jme ), INTENT(INOUT )::  ISLTYP
    INTEGER, DIMENSION( ims:ime , jms:jme ), INTENT(INOUT)::   IVGTYP
+#ifdef BPRC_MODS
+! bai 20141023 =====================================================
+   REAL,        DIMENSION( ims:ime , jms:jme ), INTENT(INOUT )::  LANDMASK
+   REAL,        DIMENSION( ims:ime , jms:jme ), INTENT(INOUT)::   LU_INDEX
+!===================================================================
+#endif
    INTEGER, DIMENSION( ims:ime , jms:jme ), INTENT(IN )::   LOWLYR
    INTEGER, INTENT(IN )::   IFSNOW
    INTEGER, INTENT(IN )::   ISFFLX
@@ -1498,16 +1515,41 @@ CONTAINS
 ! use old tsk from seaice part
                 TSK(I,J) = TSK_SAVE(I,J)*XICE(I,J) + (1.-XICE(I,J))*SST(I,J)
             ENDIF
+
+#ifdef BPRC_MODS
+! bai ===================================================================================
+           IF ( XICE(I,J) .GT. XICE_THRESHOLD ) THEN
+             IF ( SEAICE_ALBEDO_OPT .EQ. 1 .OR. SEAICE_ALBEDO_OPT .EQ. 0 ) THEN
+                ALBBCK(I,J) = SEAICE_ALBEDO_DEFAULT * XICE(I,J) + 0.08 * ( 1.0-XICE(I,J) )
+                EMISS(I,J)  = 0.95 * XICE(I,J) + 0.98 * ( 1.0-XICE(I,J) )
+             ENDIF
+           ENDIF
+!========================================================================================
+#endif
+
          ENDIF
 
         IF ( XLAND(i,j) .GT. 1.5 .AND. XICE(I,J) .GE. XICE_THRESHOLD .AND. XICEM(I,J) .LT. XICE_THRESHOLD ) THEN
+
+!**************************************************************
           ! water point turns to sea-ice point
+!**************************************************************
+
           XICEM(I,J) = XICE(I,J)
           XLAND(I,J) = 1.
           IVGTYP(I,J) = ISICE
           ISLTYP(I,J) = 16
           VEGFRA(I,J) = 0.
           TMN(I,J) = 271.4
+#ifdef BPRC_MODS
+          !EMISS(I,J) = 0.95  ! bai
+          !EMBCK(I,J)  = 0.95 ! bai
+
+! bai  20141023=================================================
+          LANDMASK(I,J)=1.
+          LU_INDEX(I,J)=ISICE
+!===============================================================
+#endif
 
           ! Over new ice, initial guesses of ALBEDO and EMISS are
           ! based on default water and ice values for albedo and
@@ -1531,8 +1573,13 @@ CONTAINS
 
           END SELECT
 
+#ifdef BPRC_MODS
+          EMISS(I,J)  = 0.95 * XICE(I,J) + 0.98 * ( 1.0-XICE(I,J) )  ! bai
+          EMBCK(I,J)  = 0.95                                         ! bai
+#else
           EMISS(I,J)  = 0.98 * XICE(I,J) + 0.98 * ( 1.0-XICE(I,J) )
           EMBCK(I,J)  = 0.98
+#endif
           DO nk = 1, num_soil_layers
             TSLB(I,NK,J) = TSK(I,J)
             SMOIS(I,NK,J) = 1.0
@@ -1579,7 +1626,11 @@ CONTAINS
 #endif
      ENDIF  ! (lakemodel=1)
         IF ( XLAND(i,j) .LT. 1.5 .AND. XICEM(I,J) .GE. XICE_THRESHOLD .AND. XICE(I,J) .LT. XICE_THRESHOLD ) THEN
+
+!************************************************
 ! sea-ice point turns to water point
+!***********************************************=
+
           XICEM(I,J) = XICE(I,J)
           XLAND(I,J) = 2.
           IVGTYP(I,J) = ISWATER
@@ -1588,11 +1639,20 @@ CONTAINS
           SNOW(I,J)  = 0.
           SNOWC(I,J) = 0.
           SNOWH(I,J) = 0.
+#ifdef BPRC_MODS
+          SNOALB(I,J) = 0.08
+#endif
           TMN(I,J) = SST(I,J)
           ALBEDO(I,J) = 0.08
           ALBBCK(I,J) = 0.08
           EMISS(I,J)  = 0.98
           EMBCK(I,J)  = 0.98
+#ifdef BPRC_MODS
+! bai 20141023====================================
+          LANDMASK(I,J)=0.
+          LU_INDEX(I,J)=ISWATER
+! ================================================
+#endif
           DO nk = 1, num_soil_layers
             TSLB(I,NK,J) = SST(I,J)
             SMOIS(I,NK,J) = 1.0
@@ -2461,9 +2521,15 @@ CONTAINS
 !          PRESENT(frc_urb2d) .AND. PRESENT(utype_urb2d)   .AND.      &
                                                       .TRUE. ) THEN
 !------------------------------------------------------------------
-         IF( PRESENT(sr) ) THEN
-           frpcpn=.true.
-         ENDIF
+
+!lm Comment this, as this can cause two problems: some of the SR values seem
+!wrong (this is probably an issue with the Morrison microphysics) and SR is 0
+!over most of the domain (no grid scale precip). This means that SR can
+!possibly prevent the cumulus precipitation to ever be considered as snow 
+!(check this)
+!lm         IF( PRESENT(sr) ) THEN
+!lm           frpcpn=.true.
+!lm         ENDIF
          IF ( FRACTIONAL_SEAICE == 1) THEN
             ! The fields passed to LSM need to represent the full ice values, not
             ! the fractional values.  Convert ALBEDO and EMISS from the blended value 
@@ -6722,6 +6788,9 @@ HFX_SEA, LH_SEA, QFX_SEA, QGH_SEA, QSFC_SEA, TSK_SEA,  &
 ! Local
       INTEGER :: i,j
       REAL    :: TICE_MIN
+#ifdef BPRC_MODS
+      REAL :: SST_old   ! Old Sea Surface Temperature (K)
+#endif
 
       TICE_MIN = 221.4
 
@@ -6732,9 +6801,16 @@ HFX_SEA, LH_SEA, QFX_SEA, QGH_SEA, QSFC_SEA, TSK_SEA,  &
                IF ( SST(i,j) < 271.4 ) THEN
                   SST(i,j) = 271.4
                ENDIF
+#ifdef BPRC_MODS
+               SST_old = SST(i,j)
+#endif
  
                IF (sfc_layer_values) THEN
+#ifdef BPRC_MODS
+                  IF ( SST(i,j) > 273. .AND. itimestep <= 1) then
+#else
                   IF ( SST(i,j) > 273. .AND. itimestep <= 3) then
+#endif
                      ! Why the dependence on the time step count, here?
                      IF ( XICE(i,j) >= 0.6 ) THEN
                         SST(i,j) = 271.4
@@ -6757,14 +6833,30 @@ HFX_SEA, LH_SEA, QFX_SEA, QGH_SEA, QSFC_SEA, TSK_SEA,  &
 !------------------------------------------------------------------------------------
                   TSK_ICE(i,j) = MIN( TSK(i,j), 273.15 )
                ELSE
+#ifdef BPRC_MODS
+! bugfix very cold initial ice fraction temperature                     kmh 07/05/2014
+                  TSK_ICE(i,j) = ( TSK(i,j) - (1.0-XICE(i,j)) * SST_old ) / XICE(i,j)
+#else
                   TSK_ICE(i,j) = ( TSK(i,j) - (1.0-XICE(i,j)) * SST(i,j) ) / XICE(i,j)
+#endif
                   IF ( TSK_ICE(i,j) < TICE_MIN ) TSK_ICE(i,j) = TICE_MIN
                ENDIF
  
+#ifdef BPRC_MODS
+! bugfix very cold TSK_ICE                                              kmh 07/05/2014
+               IF ( ( XICE(i,j) < 0.2 ) .AND. ( TSK_ICE(i,j) < 253.15 ) ) THEN
+                  TSK_ICE(i,j) = 253.15
+#else
                IF ( ( XICE(i,j) < 0.2 ) .AND. ( TSK(i,j) < 253.15 ) ) THEN
                   TSK_ICE(i,j) = 253.15
+#endif
                ENDIF
+#ifdef BPRC_MODS
+! bugfix very cold TSK_ICE
+               IF ( ( XICE(i,j) < 0.1 ) .AND. ( TSK_ICE(i,j) < 263.15 ) ) THEN
+#else
                IF ( ( XICE(i,j) < 0.1 ) .AND. ( TSK(i,j) < 263.15 ) ) THEN
+#endif
                   TSK_ICE(i,j) = 263.15
                ENDIF
             ELSE

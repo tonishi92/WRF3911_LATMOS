@@ -5,6 +5,34 @@
 ! 10/12/2011 - Ravan Ahmadov (NOAA) updated to include the RACM_SOA_VBS option
 ! 10/08/2014 - Kai Wang and Yang Zhang (NCSU) updated to include the CB05_MADE/SORGAM and CB05_MADE/VBS options
 !
+!ND 2016/04: Added all dry and wet deposition diagnostic variables for SAPRC99
+!            chemical mechanism and removed previously added diagnostics for 
+!            deposision
+!lm 2015/10: Changed the initialization of CH4 and CO2 in chemics init, and
+!changed the forced CH4 value for SAPRC hardcoded here. Also passed snow cover
+!to photolysis
+!lm 2015/09: Only calculate the optical properties for the radiative effect of
+!            O3 and aerosols at timestep radeffectdt (set in the namelist)
+!lm 2015/09: I added a switch, so4_switch for the optical driver. Turning this
+!            switch off (=0) sets the so4 mass to 0 for the optical averaging
+!            calculations, thus producing optical properties without SO4. These
+!            optical properties are used in radiation_driver to estimate the 
+!            radiative effect of SO4.
+!lm 2015/07: now passing snowh, xice, lu_index to fastj through the photolysis
+!            driver in order to change UV albedo over snow & ice
+!lm 2015/07: Now passing xice to wesely_driver through the drydep driver in
+!            order to treat deposition on ice differently than deposition on
+!            open water.
+!lm 2015/07: Added two diagnostic variables, wet_dep_bc and dry_dep_bc,
+!            representing accumulated bc deposition (µg m-2) due to dry dep and
+!            wet dep in MOSAIC. Dry dep is done in mixactivate, and wet dep in
+!            chem_cup and mosaic_wetscav 
+!lm 2015/07: I added a switch, bc_switch for the optical driver. Turning this
+!            switch off (=0) sets the bc mass to 0 for the optical averaging
+!            calculations, thus producing optical properties without BC. These
+!            optical properties are used in radiation_driver to estimate the 
+!            radiative effect of BC.
+!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine chem_driver ( grid , config_flags   &
  
@@ -210,6 +238,9 @@
    INTEGER :: ijulian
 ! UoC dust scheme option
    INTEGER :: imod   
+!lm
+   INTEGER :: bc_switch, so4_switch
+!lm
 !  REAL    :: convtrans_avglen_m
 
 ! ................................................................
@@ -238,6 +269,9 @@
       REAL(KIND=8) :: curr_secs
       REAL(KIND=8) :: real_time_r8                                 !ext. function in adapt_timestep_em.F
       LOGICAL      :: adapt_step_flag, do_chemstep, do_photstep
+!lm
+      LOGICAL      :: do_radeffectstep
+!lm
 
       REAL :: DAYI,DPL,FICE,FRAIN,HOUR,PLYR          &
      &       ,QI,QR,QW,RADT,TIMES,WC,TDUM,WMSK,RWMSK
@@ -343,6 +377,22 @@
      do_photstep = .true.
   ENDIF
 
+!lm Only calculate the optical properties for radiative effects of aerosols at
+!time step radeffectdt
+  do_radeffectstep = .false.
+  IF ( ktau==1 ) then
+     do_radeffectstep = .true.
+  ELSE IF ( adapt_step_flag ) THEN
+     IF ( (grid%radeffectdt<=0) .or. &
+          ( curr_secs+real(grid%dt,8)+0.01 >= &
+          ( INT( curr_secs/real(grid%radeffectdt*60.,8)+1,8 )*real(grid%radeffectdt*60.,8)) ) &
+          ) then
+        do_radeffectstep = .true.
+     ENDIF
+  ELSE IF ( (MOD(ktau,grid%stepradeffect)==0) .or. (grid%stepradeffect==1) ) THEN
+     do_radeffectstep = .true.
+  ENDIF
+!lm
   if( ktau==1 ) then
      dtstepc = grid%dt
   else
@@ -656,7 +706,9 @@
          do j=jps,jpe
             do k=kps,kpe
                do i=ips,ipe
-                  chem(i,k,j,p_ch4)=1.74
+                  !chem(i,k,j,p_ch4)=1.74
+                  chem(i,k,j,p_ch4)=1.893 !lm Blasing et al., 2014, recent GHG
+                                          !concentrations (used the 2013 value for Mace Head)
                enddo
             enddo
          enddo
@@ -804,6 +856,9 @@
               current_month,                                                               &
          ! stuff for LNOx emissions
              grid%ht, grid%refl_10cm, grid%ic_flashrate, grid%cg_flashrate,                 &
+!lm
+              grid%cldfra_cup, grid%htop,                                                  &
+!lm
          ! stuff for aircraft emissions
               emis_aircraft,                                                               &
          ! stuff for the GHG fluxes
@@ -854,6 +909,68 @@
            config_flags%chem_opt /= CO2_TRACER  .and. &
            config_flags%chem_opt /= GHG_TRACER ) then
          call wrf_debug(15,'calling optical driver')
+
+!lm only do optical properties for radiative effects at timestep radeffectdt
+         IF ( do_radeffectstep ) THEN
+         CALL wrf_debug(1,'chem_driver, calling optical properties for the radiative effect calculations')
+!lm call optical_driver once with mass_bc=0
+         so4_switch=1
+         bc_switch=0
+         call optical_driver (grid%id,curr_secs,grid%dt,config_flags,haveaer,&
+              chem,dz8w,rri,rh,&
+              grid%h2oai,grid%h2oaj,&
+              grid%tauaer1_no_bc,grid%tauaer2_no_bc,grid%tauaer3_no_bc,grid%tauaer4_no_bc,&
+             !czhao
+              grid%extaer1,grid%extaer2,grid%extaer3,grid%extaer4,&
+              grid%gaer1_no_bc,grid%gaer2_no_bc,grid%gaer3_no_bc,grid%gaer4_no_bc,&
+              grid%waer1_no_bc,grid%waer2_no_bc,grid%waer3_no_bc,grid%waer4_no_bc,&
+              grid%bscoef1,grid%bscoef2,grid%bscoef3,grid%bscoef4,&
+              grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,&
+              grid%totoa_a01,grid%totoa_a02,grid%totoa_a03,grid%totoa_a04,&
+              grid%totoa_a05,grid%totoa_a06,grid%totoa_a07,grid%totoa_a08,&
+              grid%extaerlw1,grid%extaerlw2,grid%extaerlw3,grid%extaerlw4,grid%extaerlw5,&
+              grid%extaerlw6,grid%extaerlw7,grid%extaerlw8,grid%extaerlw9,grid%extaerlw10,&
+              grid%extaerlw11,grid%extaerlw12,grid%extaerlw13,grid%extaerlw14,grid%extaerlw15,&
+              grid%extaerlw16,    &
+              grid%tauaerlw1,grid%tauaerlw2,grid%tauaerlw3,grid%tauaerlw4,grid%tauaerlw5,&
+              grid%tauaerlw6,grid%tauaerlw7,grid%tauaerlw8,grid%tauaerlw9,grid%tauaerlw10,&
+              grid%tauaerlw11,grid%tauaerlw12,grid%tauaerlw13,grid%tauaerlw14,grid%tauaerlw15,&
+              grid%tauaerlw16,    &
+              bc_switch, so4_switch, &
+              ids,ide, jds,jde, kds,kde,&
+              ims,ime, jms,jme, kms,kme,&
+              its,ite, jts,jte, kts,kte)
+!call optical_driver once with mass_so4=0
+         so4_switch=0
+         bc_switch=1
+         call optical_driver (grid%id,curr_secs,grid%dt,config_flags,haveaer,&
+              chem,dz8w,rri,rh,&
+              grid%h2oai,grid%h2oaj,&
+              grid%tauaer1_no_so4,grid%tauaer2_no_so4,grid%tauaer3_no_so4,grid%tauaer4_no_so4,&
+             !czhao
+              grid%extaer1,grid%extaer2,grid%extaer3,grid%extaer4,&
+              grid%gaer1_no_so4,grid%gaer2_no_so4,grid%gaer3_no_so4,grid%gaer4_no_so4,&
+              grid%waer1_no_so4,grid%waer2_no_so4,grid%waer3_no_so4,grid%waer4_no_so4,&
+              grid%bscoef1,grid%bscoef2,grid%bscoef3,grid%bscoef4,&
+              grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,&
+              grid%totoa_a01,grid%totoa_a02,grid%totoa_a03,grid%totoa_a04,&
+              grid%totoa_a05,grid%totoa_a06,grid%totoa_a07,grid%totoa_a08,&
+              grid%extaerlw1,grid%extaerlw2,grid%extaerlw3,grid%extaerlw4,grid%extaerlw5,&
+              grid%extaerlw6,grid%extaerlw7,grid%extaerlw8,grid%extaerlw9,grid%extaerlw10,&
+              grid%extaerlw11,grid%extaerlw12,grid%extaerlw13,grid%extaerlw14,grid%extaerlw15,&
+              grid%extaerlw16,    &
+              grid%tauaerlw1,grid%tauaerlw2,grid%tauaerlw3,grid%tauaerlw4,grid%tauaerlw5,&
+              grid%tauaerlw6,grid%tauaerlw7,grid%tauaerlw8,grid%tauaerlw9,grid%tauaerlw10,&
+              grid%tauaerlw11,grid%tauaerlw12,grid%tauaerlw13,grid%tauaerlw14,grid%tauaerlw15,&
+              grid%tauaerlw16,    &
+              bc_switch, so4_switch, &
+              ids,ide, jds,jde, kds,kde,&
+              ims,ime, jms,jme, kms,kme,&
+              its,ite, jts,jte, kts,kte)
+         endif !doradeffectstep
+         so4_switch=1
+         bc_switch=1
+!lm
          call optical_driver (grid%id,curr_secs,grid%dt,config_flags,haveaer,         &
               chem,dz8w,rri,rh,                                                       &
               grid%h2oai,grid%h2oaj,                                                  &
@@ -874,6 +991,9 @@
               grid%tauaerlw6,grid%tauaerlw7,grid%tauaerlw8,grid%tauaerlw9,grid%tauaerlw10,  &
               grid%tauaerlw11,grid%tauaerlw12,grid%tauaerlw13,grid%tauaerlw14,grid%tauaerlw15,  &
               grid%tauaerlw16,    &
+!lm
+              bc_switch, so4_switch,&
+!lm
               ids,ide, jds,jde, kds,kde,                                              &
               ims,ime, jms,jme, kms,kme,                                              &
               its,ite, jts,jte, kts,kte)
@@ -916,6 +1036,9 @@
               config_flags%track_tuv_num,                                             &
               grid%radfld,grid%adjcoe,grid%phrate,                                    &
               grid%track_wc,grid%track_zref,                                          &
+!lm
+              grid%snowh, grid%snowc, grid%xice, grid%LU_INDEX,                       &
+!lm
               grid%tauaer1,grid%tauaer2,grid%tauaer3,grid%tauaer4,                    &
               grid%gaer1,grid%gaer2,grid%gaer3,grid%gaer4,                            &
               grid%waer1,grid%waer2,grid%waer3,grid%waer4,                            &
@@ -993,6 +1116,11 @@
                  grid%setvel_1,grid%setvel_2,grid%setvel_3,grid%setvel_4,             &
                  grid%setvel_5, imod,                                                 &                  
                  grid%is_CAMMGMP_used,                                                &
+!lm
+                 grid%xice,                                                           &
+!ND TEST FOR OUTPUTING DRY DEPOSITION MASSIVELY
+                 grid%dryd_ct,                                                        &
+!lm
                  grid%dep_vel,grid%num_vert_mix,                                      &
                  ids,ide, jds,jde, kds,kde,                                           &
                  ims,ime, jms,jme, kms,kme,                                           &
@@ -1420,6 +1548,12 @@ if ( cam_mam_aerosols ) &
                 grid%na_a_5to6_ic_cup,  grid%na_cw_5to6_ic_cup,                         &
                 grid%cl_a_5to6_ic_cup,  grid%cl_cw_5to6_ic_cup,                         &
                 grid%water_5to6_ic_cup,                                                 & 
+!lm
+!                grid%wet_dep_bc,                                                        &
+!ND add all the species for wet deposition
+                grid%wetd_ct,                                                           &
+!ND
+!lm
                 ids,ide, jds,jde, kds,kde,                                              &
                 ims,ime, jms,jme, kms,kme,                                              &
                 its,ite, jts,jte, kts,kte                                               )
@@ -1521,6 +1655,12 @@ if ( cam_mam_aerosols ) &
               grid%f_ice_phy,grid%f_rain_phy,grid%cldfrai,grid%cldfral,               &
               grid%cldfra_mp_all,grid%is_CAMMGMP_used,                                &
 !======================================================================================
+!!lm
+!              grid%wet_dep_bc,                                                        &
+!!lm
+!ND add all the species for wet deposition
+              grid%wetd_ct,                                                           &
+!ND
               ids,ide, jds,jde, kds,kde,                                              &
               ims,ime, jms,jme, kms,kme,                                              &
               its,ite, jts,jte, kts,kte)                                              
@@ -1631,6 +1771,7 @@ end if !Chemistry time step check
            ims,ime, jms,jme, kms,kme,                                                 &
            its,ite, jts,jte, kts, kte                                                 )
 
+!lm: do bucket dep here, module_dep_bucket.F
 
 ! Fill top level to prevent spurious interpolation results (no extrapolation)
       do nv=1,num_chem

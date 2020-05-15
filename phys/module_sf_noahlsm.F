@@ -1,4 +1,7 @@
 MODULE module_sf_noahlsm
+#define BPRC_MODS
+!!#define ORGANIC_TUNDRA
+!!#define ALTERNATE_SFCT
   USE module_model_constants, only : CP, R_D, XLF, XLV, RHOWATER, STBOLT, KARMAN
 
 !ckay=KIRAN ALAPATY @ US EPA -- November 01, 2015
@@ -16,7 +19,12 @@ MODULE module_sf_noahlsm
   REAL, PARAMETER      :: RD = 287.04, SIGMA = 5.67E-8,                 &
                           CPH2O = 4.218E+3,CPICE = 2.106E+3,            &
                           LSUBF = 3.335E+5,                             &
-                          EMISSI_S = 0.95
+!!!                          EMISSI_S = 0.95
+#ifdef BPRC_MODS
+                          EMISSI_S = 0.95  ! .98 removed by bai
+#else
+                          EMISSI_S = 0.95  
+#endif
 
 ! VEGETATION PARAMETERS
         INTEGER :: LUCATS , BARE
@@ -112,6 +120,9 @@ CONTAINS
 !  O  OUTPUT VARIABLES
 !  D  DIAGNOSTIC OUTPUT
 !  P  Parameters
+!!#ifdefine BPRC_MODS
+!  K  BPRC MODS
+!!#endif
 !  Msic Miscellaneous terms passed from gridded driver
 ! ----------------------------------------------------------------------
 ! 1. CONFIGURATION INFORMATION (C):
@@ -607,6 +618,22 @@ CONTAINS
 
 !urban
             IF ( VEGTYP == ISURBAN ) DF1=3.24
+
+#ifdef ORGANIC_TUNDRA
+! kmh 09/21/2009 upper tundra soil layer is organic with low conductivity
+!    Inspired by Mike Barlage's Arctic Noah tests
+!    seems to work well for North Slope of Alaska
+!
+!  adjust this for the landuse system you are using so that impacted landuse types are tundra
+!
+       IF ( VEGTYP .GE. 20 .and. VEGTYP .LE. 23) THEN   ! this is for 24 landuse types adjust if using MODIS list of 20!
+!       IF ( VEGTYP .GE. 18 .and. VEGTYP .LE. 20) THEN   ! this is for 20 landuse types adjust if NOT using MODIS list of 20!
+! only for tundra (herbaceous, wooded, mixed and bare ground tundra)
+         IF ( DF1 .gt. 0.25 ) THEN
+           DF1 = 0.25
+         ENDIF
+       ENDIF
+#endif
 
             DF1 = DF1 * EXP (SBETA * SHDFAC)
 !
@@ -1631,6 +1658,15 @@ CONTAINS
       HCPCT = SH2O (1)* CH2O + (1.0- SMCMAX)* CSOIL_LOC + (SMCMAX - SMC (1))&
        * CAIR                                                           &
               + ( SMC (1) - SH2O (1) )* CICE
+#ifdef ORGANIC_TUNDRA
+       IF ( VEGTYP .GE. 20 .and. VEGTYP .LE. 23) THEN   ! this is for 24 landuse types adjust if using MODIS list of 20!
+!       IF ( VEGTYP .GE. 18 .and. VEGTYP .LE. 20) THEN   ! this is for 20 landuse types adjust if NOT using MODIS list of 20!
+! only for tundra (herbaceous, wooded, mixed and bare ground tundra)
+         IF ( DF1 .gt. 0.25 ) THEN
+           DF1 = 0.25
+         ENDIF
+       ENDIF
+#endif
 !
 ! FASDAS
 !
@@ -2142,6 +2178,15 @@ CONTAINS
 !urban
       IF ( VEGTYP == ISURBAN ) DF1=3.24
 !
+#ifdef ORGANIC_TUNDRA
+       IF ( VEGTYP .GE. 20 .and. VEGTYP .LE. 23) THEN   ! this is for 24 landuse types adjust if using MODIS list of 20!
+!       IF ( VEGTYP .GE. 18 .and. VEGTYP .LE. 20) THEN   ! this is for 20 landuse types adjust if NOT using MODIS list of 20!
+! only for tundra (herbaceous, wooded, mixed and bare ground tundra)
+         IF ( DF1 .gt. 0.25 ) THEN
+           DF1 = 0.25
+         ENDIF
+       ENDIF
+#endif
 
 ! ----------------------------------------------------------------------
 ! VEGETATION GREENNESS FRACTION REDUCTION IN SUBSURFACE HEAT FLUX

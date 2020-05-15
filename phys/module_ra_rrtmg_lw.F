@@ -12228,7 +12228,9 @@ CONTAINS
          do k = kts, nlayers
             o3vmr(ncol,k) = o3mmr(k) * amdo
             IF ( PRESENT( O33D ) ) THEN
-            if(o3input .eq. 2)then
+!lm            if(o3input .eq. 2)then
+            if(o3input .eq. 2 .or. o3input .eq. 3)then
+!lm
                if(k.le.kte)then
                  o3vmr(ncol,k) = o31d(k)
                else

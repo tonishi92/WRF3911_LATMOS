@@ -1,7 +1,18 @@
 Module module_add_emiss_burn
+!lm 2015/07: I added a new biomass burning emission package for SAPRC
+!lm 2015/07: For SAPRC_MOSAIC_VBS2, I add the OA emissions here instead of in
+!            emission_driver, in order to use the plumerise.
+!            I also now use updated factors for transferring POA emissions to pcg2,
+!            according to Manish Shrivastava (see also Shrivastava et al., 2015,
+!            JGR-A) original factors might cause an overestimated production of 
+!            SOA from fires.
+!
 CONTAINS
        subroutine add_emis_burn(id,dtstep,ktau,dz8w,rho_phy,chem,       &
             julday,gmt,xlat,xlong,t_phy,p_phy,                          &
+!lm
+            alt, &
+!lm
             ebu,chem_opt,tracer_opt,biomass_burn_opt,                   &
             num_c,ids,ide, jds,jde, kds,kde,                            &
             ims,ime, jms,jme, kms,kme,                                  &
@@ -35,12 +46,19 @@ CONTAINS
                                                       p_phy,               &
                                                       dz8w,                &
                                                     rho_phy
+!lm
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,               &
+          INTENT(IN   ) ::                            alt
+!lm
 
       REAL,      INTENT(IN   ) ::                                          &
                              dtstep,gmt
     integer ::imonth1,idate1,iyear1,itime1
     integer :: i,j,k
     real :: time,conv_rho
+!lm
+    real :: conv3
+!lm
     integer :: iweek,idays
     real :: tign,timeq,r_q,r_antro
     real, dimension(7) :: week_CYCLE
@@ -286,8 +304,11 @@ CONTAINS
         enddo
         enddo
         enddo
-      CASE (RADM2,RACM_KPP,RACM_MIM_KPP,SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP, &
-           SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, SAPRC99_MOSAIC_8BIN_VBS2_KPP)!BSINGH(12/03/2013): Added SAPRC 8 bin and non-aq on (04/07/2014)
+!lm remove SAPRC mosaic from here, use the dedicated fire package
+      CASE (RADM2,RACM_KPP,RACM_MIM_KPP)!BSINGH(12/03/2013): Added SAPRC 8 bin and non-aq on (04/07/2014)
+!      CASE (RADM2,RACM_KPP,RACM_MIM_KPP,SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP, &
+!           SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, SAPRC99_MOSAIC_8BIN_VBS2_KPP)!BSINGH(12/03/2013): Added SAPRC 8 bin and non-aq on (04/07/2014)
+!lm
           do j=jts,jte
           do i=its,ite
            do k=kts,kte
@@ -421,6 +442,101 @@ CONTAINS
           enddo
           enddo
         endif
+!jcr : case cmbz
+       CASE (CBMZ, CBMZ_BB, CBMZ_BB_KPP, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, &
+          CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
+          CBMZSORG, CBMZSORG_AQ, CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, &
+          CBMZ_MOSAIC_KPP, &
+          CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ)
+        if( biomass_burn_opt == BIOMASSB_CBMZ ) then
+          call wrf_debug(15,'adding fire emissions for CBMZ')
+          do j=jts,jte
+            do k=kts,kte
+              do i=its,ite
+                conv_rho = (r_q*4.828e-4*dtstep)/(rho_phy(i,k,j)*60.*dz8w(i,k,j))
+                chem(i,k,j,p_no2) = chem(i,k,j,p_no2) + ebu(i,k,j,p_ebu_no2)*conv_rho
+                chem(i,k,j,p_c2h5oh) = chem(i,k,j,p_c2h5oh) + ebu(i,k,j,p_ebu_c2h5oh)*conv_rho
+                chem(i,k,j,p_par) = chem(i,k,j,p_par) + ebu(i,k,j,p_ebu_par)*conv_rho
+                chem(i,k,j,p_ch3oh) = chem(i,k,j,p_ch3oh) + ebu(i,k,j,p_ebu_ch3oh)*conv_rho
+                chem(i,k,j,p_csl)  = chem(i,k,j,p_csl) + ebu(i,k,j,p_ebu_csl)*conv_rho
+                chem(i,k,j,p_so2)  = chem(i,k,j,p_so2) + ebu(i,k,j,p_ebu_so2)*conv_rho
+                chem(i,k,j,p_no)   = chem(i,k,j,p_no) + ebu(i,k,j,p_ebu_no)*conv_rho
+                chem(i,k,j,p_ald)  = chem(i,k,j,p_ald) + ebu(i,k,j,p_ebu_ald)*conv_rho
+                chem(i,k,j,p_hcho) = chem(i,k,j,p_hcho) + ebu(i,k,j,p_ebu_hcho)*conv_rho
+                chem(i,k,j,p_ora2) = chem(i,k,j,p_ora2) + ebu(i,k,j,p_ebu_ora2)*conv_rho
+                chem(i,k,j,p_nh3)  = chem(i,k,j,p_nh3) + ebu(i,k,j,p_ebu_nh3)*conv_rho
+                chem(i,k,j,p_eth)  = chem(i,k,j,p_eth) + ebu(i,k,j,p_ebu_eth)*conv_rho
+                chem(i,k,j,p_co)   = chem(i,k,j,p_co) + ebu(i,k,j,p_ebu_co)*conv_rho
+                chem(i,k,j,p_ol2)  = chem(i,k,j,p_ol2) + ebu(i,k,j,p_ebu_ol2)*conv_rho
+                chem(i,k,j,p_olt)  = chem(i,k,j,p_olt) + ebu(i,k,j,p_ebu_olt)*conv_rho
+                chem(i,k,j,p_oli)  = chem(i,k,j,p_oli) + ebu(i,k,j,p_ebu_oli)*conv_rho
+                chem(i,k,j,p_tol)  = chem(i,k,j,p_tol) + ebu(i,k,j,p_ebu_tol)*conv_rho
+                chem(i,k,j,p_xyl)  = chem(i,k,j,p_xyl) + ebu(i,k,j,p_ebu_xyl)*conv_rho
+                chem(i,k,j,p_ket)  = chem(i,k,j,p_ket) + ebu(i,k,j,p_ebu_ket)*conv_rho
+                chem(i,k,j,p_iso)  = chem(i,k,j,p_iso) + ebu(i,k,j,p_ebu_iso)*conv_rho
+                chem(i,k,j,p_ora1)  = chem(i,k,j,p_ora1) + ebu(i,k,j,p_ebu_ora1)*conv_rho
+              enddo
+            enddo
+          enddo
+        endif
+!jcr : end case cmbz
+
+!lm New biomass burning emission package for SAPRC VBS2 mechanisms
+        CASE (SAPRC99_MOSAIC_4BIN_VBS2_KPP, SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, SAPRC99_MOSAIC_8BIN_VBS2_KPP)
+        if( biomass_burn_opt == BIOMASSB_SAPRC ) then
+          call wrf_debug(15,'adding fire emissions for SAPRC')
+          do j=jts,jte
+            do k=kts,kte
+              do i=its,ite
+                conv_rho =(r_q*4.828e-4*dtstep)/(rho_phy(i,k,j)*60.*dz8w(i,k,j))
+                conv3 = (dtstep/dz8w(i,k,j))*alt(i,k,j)*28/250*1e-3! Molecular weight of C(15)H(27)N(0.3)O(4.5)
+                chem(i,k,j,p_co) = chem(i,k,j,p_co) + ebu(i,k,j,p_ebu_co)*conv_rho
+                chem(i,k,j,p_no) = chem(i,k,j,p_no) + ebu(i,k,j,p_ebu_no)*conv_rho
+                chem(i,k,j,p_no2) = chem(i,k,j,p_no2) + ebu(i,k,j,p_ebu_no2)*conv_rho
+                chem(i,k,j,p_so2) = chem(i,k,j,p_so2) + ebu(i,k,j,p_ebu_so2)*conv_rho
+                chem(i,k,j,p_nh3) = chem(i,k,j,p_nh3) + ebu(i,k,j,p_ebu_nh3)*conv_rho
+                chem(i,k,j,p_ch4) = chem(i,k,j,p_ch4) + ebu(i,k,j,p_ebu_ch4)*conv_rho
+                chem(i,k,j,p_acet) = chem(i,k,j,p_acet) + ebu(i,k,j,p_ebu_acet)*conv_rho
+                chem(i,k,j,p_c2h6) = chem(i,k,j,p_c2h6) + ebu(i,k,j,p_ebu_c2h6)*conv_rho
+                chem(i,k,j,p_c3h8) = chem(i,k,j,p_c3h8) + ebu(i,k,j,p_ebu_c3h8)*conv_rho
+                chem(i,k,j,p_alk3) = chem(i,k,j,p_alk3) + ebu(i,k,j,p_ebu_alk3)*conv_rho
+                chem(i,k,j,p_alk4) = chem(i,k,j,p_alk4) + ebu(i,k,j,p_ebu_alk4)*conv_rho
+                chem(i,k,j,p_alk5) = chem(i,k,j,p_alk5) + ebu(i,k,j,p_ebu_alk5)*conv_rho
+                chem(i,k,j,p_aro1) = chem(i,k,j,p_aro1) + ebu(i,k,j,p_ebu_aro1)*conv_rho
+                chem(i,k,j,p_aro2) = chem(i,k,j,p_aro2) + ebu(i,k,j,p_ebu_aro2)*conv_rho
+                chem(i,k,j,p_bald) = chem(i,k,j,p_bald) + ebu(i,k,j,p_ebu_bald)*conv_rho
+                chem(i,k,j,p_ccho) = chem(i,k,j,p_ccho) + ebu(i,k,j,p_ebu_ccho)*conv_rho
+                chem(i,k,j,p_cco_oh) = chem(i,k,j,p_cco_oh) + ebu(i,k,j,p_ebu_cco_oh)*conv_rho
+                chem(i,k,j,p_ethene) = chem(i,k,j,p_ethene) + ebu(i,k,j,p_ebu_ethene)*conv_rho
+                chem(i,k,j,p_hcho) = chem(i,k,j,p_hcho) + ebu(i,k,j,p_ebu_hcho)*conv_rho
+                chem(i,k,j,p_hcooh) = chem(i,k,j,p_hcooh) + ebu(i,k,j,p_ebu_hcooh)*conv_rho
+                chem(i,k,j,p_hono) = chem(i,k,j,p_hono) + ebu(i,k,j,p_ebu_hono)*conv_rho
+                chem(i,k,j,p_isoprene) = chem(i,k,j,p_isoprene) + ebu(i,k,j,p_ebu_isoprene)*conv_rho
+                chem(i,k,j,p_mek) = chem(i,k,j,p_mek) + ebu(i,k,j,p_ebu_mek)*conv_rho
+                chem(i,k,j,p_meoh) = chem(i,k,j,p_meoh) + ebu(i,k,j,p_ebu_meoh)*conv_rho
+                chem(i,k,j,p_methacro) = chem(i,k,j,p_methacro) + ebu(i,k,j,p_ebu_methacro)*conv_rho
+                chem(i,k,j,p_mgly) = chem(i,k,j,p_mgly) + ebu(i,k,j,p_ebu_mgly)*conv_rho
+                chem(i,k,j,p_mvk) = chem(i,k,j,p_mvk) + ebu(i,k,j,p_ebu_mvk)*conv_rho
+                chem(i,k,j,p_ole1) = chem(i,k,j,p_ole1) + ebu(i,k,j,p_ebu_ole1)*conv_rho
+                chem(i,k,j,p_ole2) = chem(i,k,j,p_ole2) + ebu(i,k,j,p_ebu_ole2)*conv_rho
+                chem(i,k,j,p_phen) = chem(i,k,j,p_phen) + ebu(i,k,j,p_ebu_phen)*conv_rho
+                chem(i,k,j,p_prod2) = chem(i,k,j,p_prod2) + ebu(i,k,j,p_ebu_prod2)*conv_rho
+                chem(i,k,j,p_rcho) = chem(i,k,j,p_rcho) + ebu(i,k,j,p_ebu_rcho)*conv_rho
+                chem(i,k,j,p_rno3) = chem(i,k,j,p_rno3) + ebu(i,k,j,p_ebu_rno3)*conv_rho
+                chem(i,k,j,p_terp) = chem(i,k,j,p_terp) + ebu(i,k,j,p_ebu_terp)*conv_rho
+!lm Add the POA emissions to oc in module_mosaic_addemis
+!lm Use updated factors for pcg2, according to Manish Shrivastava (see also Shrivastava et al., 2015, JGR-A)
+!The original factors seem to cause an overestimated production of SOA from fires.
+!                chem(i,k,j,p_pcg1_b_c)  =  chem(i,k,j,p_pcg1_b_c) + (ebu(i,k,j,p_ebu_oc)/1.57)*conv3*1.17
+!                chem(i,k,j,p_pcg2_b_c)  =  chem(i,k,j,p_pcg2_b_c) + (ebu(i,k,j,p_ebu_oc)/1.57)*conv3*1.755
+!                chem(i,k,j,p_pcg1_b_o)  =  chem(i,k,j,p_pcg1_b_o) + (ebu(i,k,j,p_ebu_oc)/1.57)*conv3*0.40
+!                chem(i,k,j,p_pcg2_b_o)  =  chem(i,k,j,p_pcg2_b_o) + (ebu(i,k,j,p_ebu_oc)/1.57)*conv3*0.6
+!lm
+              enddo
+            enddo
+          enddo
+        endif
+!lm
     CASE DEFAULT
        call wrf_debug(15,'nothing done with burn emissions for chem array')
     END SELECT emiss_select

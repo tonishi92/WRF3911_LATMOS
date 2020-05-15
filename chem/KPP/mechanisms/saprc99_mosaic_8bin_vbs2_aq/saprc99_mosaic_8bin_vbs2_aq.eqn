@@ -415,6 +415,9 @@
 {255} PCG2_F_C + OH  = OPCG1_F_C + 0.5OPCG1_F_O + psd2   : 0.5714D-11 ;
 {256} PCG2_F_O + OH  = OPCG1_F_O +OH + psd2              : 0.5714D-11 ;
 
+{257} DMS+OH=SO2                     : ARR2(9.6e-12_dp, 234._dp, TEMP) ;
+{258} DMS+OH=.5 SO2+.5 HO2           : usr24( temp, c_m ) ;
+{259} DMS+NO3=SO2+HNO3               : ARR2(1.9e-13_dp, -520._dp, TEMP) ;
 
 
 

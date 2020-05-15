@@ -60,6 +60,13 @@
 ! Office of Biological and Environmental Research the PNNL Laboratory
 ! Research and Directed Research and Development program.
 !************************************************************************
+!lm 2015/09: I added a switch, so4_switch. When =0, the so4 mass is set to 0.0
+!before doing the optical calculations in module optical_averaging, thus
+!producing optical properties without SO4
+!lm 2015/07: I added a switch, bc_switch. When =0, the bc mass is set to 0.0
+!before doing the optical calculations, thus producing optical properties
+!without BC
+!
 	module module_optical_averaging
 	
         USE module_data_rrtmgaeropt
@@ -114,6 +121,9 @@
                  totoa_a01,totoa_a02,totoa_a03,totoa_a04,               &
                  totoa_a05,totoa_a06,totoa_a07,totoa_a08,               &
                  tauaerlw,extaerlw,                                     &
+!lm
+                 bc_switch, so4_switch, &
+!lm
                  ids,ide, jds,jde, kds,kde,                             &
                  ims,ime, jms,jme, kms,kme,                             &
                  its,ite, jts,jte, kts,kte                              )
@@ -129,6 +139,9 @@
                                   ids,ide, jds,jde, kds,kde,           &
                                   ims,ime, jms,jme, kms,kme,           &
                                   its,ite, jts,jte, kts,kte
+!lm
+   INTEGER,      INTENT(IN   ) :: bc_switch, so4_switch
+!lm
    INTEGER,      INTENT(IN   ) :: nbin_o
    REAL(KIND=8), INTENT(IN   ) :: curr_secs
    REAL,         INTENT(IN   ) :: dtstep
@@ -288,6 +301,9 @@
           radius_core, radius_wet, number_bin,                             &
           swrefindx,swrefindx_core,swrefindx_shell,                    &
           lwrefindx,lwrefindx_core,lwrefindx_shell,                    &
+!lm
+          bc_switch, so4_switch, &
+!lm
           ids,ide, jds,jde, kds,kde,                                   &
           ims,ime, jms,jme, kms,kme,                                   &
           its,ite, jts,jte, kts,kte                                    )
@@ -544,6 +560,9 @@
         radius_core,radius_wet, number_bin,                         &
         swrefindx,swrefindx_core,swrefindx_shell,               &
         lwrefindx,lwrefindx_core,lwrefindx_shell,               &
+!lm
+        bc_switch, so4_switch, &
+!lm
         ids,ide, jds,jde, kds,kde,                               &
         ims,ime, jms,jme, kms,kme,                               &
         its,ite, jts,jte, kts,kte                                )
@@ -558,6 +577,9 @@
    INTEGER, INTENT(IN   ) :: its,ite, jts,jte, kts,kte, nbin_o
    INTEGER, INTENT(IN   ) :: ims,ime, jms,jme, kms,kme
    INTEGER, INTENT(IN   ) :: ids,ide, jds,jde, kds,kde
+!lm
+   INTEGER, INTENT(IN   ) :: bc_switch, so4_switch
+!lm
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),             &
          INTENT(IN ) ::  chem
@@ -796,8 +818,8 @@
           conv1a = (1.0/alt(i,k,j)) * 1.0e-12
 ! convert # / kg dry air to # / cc  air
           conv1b = (1.0/alt(i,k,j)) * 1.0e-6
-          l=lptr_so4_aer(isize,itype,iphase)
-          if (l .ge. p1st)  mass_so4= chem(i,k,j,l)*conv1a
+!lm          l=lptr_so4_aer(isize,itype,iphase)
+!lm          if (l .ge. p1st)  mass_so4= chem(i,k,j,l)*conv1a
           l=lptr_no3_aer(isize,itype,iphase)
           if (l .ge. p1st)  mass_no3= chem(i,k,j,l)*conv1a
           l=lptr_nh4_aer(isize,itype,iphase)
@@ -819,8 +841,20 @@
           if (totoa_a07(i,k,j) .gt. 1.0e-12 .and. isize .eq. 7) mass_oc=totoa_a07(i,k,j)*conv1a
           if (totoa_a08(i,k,j) .gt. 1.0e-12 .and. isize .eq. 8) mass_oc=totoa_a08(i,k,j)*conv1a
 !
+!lm If bc_switch is 0, set mass_bc to 0 to calculate the bc optical
+!properties and radiative effect (in radiation_driver). Same for SO4
           l=lptr_bc_aer(isize,itype,iphase)
           if (l .ge. p1st)  mass_bc= chem(i,k,j,l)*conv1a
+          if (bc_switch .eq. 0) then
+            if (l .ge. p1st)  mass_bc= 0.
+          endif
+!SO4
+          l=lptr_so4_aer(isize,itype,iphase)
+          if (l .ge. p1st)  mass_so4= chem(i,k,j,l)*conv1a
+          if (so4_switch .eq. 0) then
+            if (l .ge. p1st)  mass_so4= 0.
+          endif
+!lm
           l=lptr_na_aer(isize,itype,iphase)
           if (l .ge. p1st)  mass_na= chem(i,k,j,l)*conv1a
           l=lptr_cl_aer(isize,itype,iphase)
@@ -880,6 +914,12 @@
 ! of these quantities.
           num_a_lo=1.90985*vol_dry_a/(dlo_sect(isize,itype)**3)
           num_a_hi=1.90985*vol_dry_a/(dhi_sect(isize,itype)**3)
+
+!lm Correct the aerosol number when doing the optical properties without BC or SO4
+          IF (bc_switch .EQ. 0) num_a = num_a - 1.90985 * vol_bc/(dcen_sect(isize,itype)**3)
+          IF (so4_switch .EQ. 0) num_a = num_a - 1.90985 * vol_so4/(dcen_sect(isize,itype)**3)
+          num_a = amax1(num_a,0.)
+!lm
 
 !czhao fixed the diameter when mass and number of aerosols drops to an extreme low values
         if (vol_dry_a.le.1.e-15.and.num_a.le.1.e-10) then  
@@ -2263,7 +2303,6 @@ if (l .ge. p1st)  mass_asoa2j= chem(i,k,j,l)*conv1a
           !(0.52359877*xdia_cm(isize)*xdia_cm(isize)*xdia_cm(isize))
           !czhao 
           num_a      = num_ai*xnum_secti(isize)+num_aj*xnum_sectj(isize)+num_ac*xnum_sectc(isize)
-
 
           !shortwave 
           do ns=1,nswbands

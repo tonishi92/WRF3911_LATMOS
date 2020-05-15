@@ -460,6 +460,16 @@ real, save :: fr8b_bburn_mosaic(8) = &
              aem_oc = 0.0
          END SELECT  chem_select_1 
 
+!lm Add anthropogenic POA emissions here instead of using the pcg... vbs species
+!in emissions_driver and module_addemis_burn
+!         chem_select_1 : SELECT CASE( config_flags%chem_opt )
+!         CASE(CBMZ_MOSAIC_4BIN_VBS2_KPP, SAPRC99_MOSAIC_4BIN_VBS2_KPP, &
+!              CBMZ_MOSAIC_8BIN_VBS9_KPP, CBMZ_MOSAIC_4BIN_VBS9_KPP, &
+!              SAPRC99_MOSAIC_4BIN_VBS9_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, &
+!              SAPRC99_MOSAIC_8BIN_VBS2_KPP)!BSINGH(12/04/2013): Added SAPRC 8 bin and non-aq on 04/03/2014! Set the oc to zero for VBS
+!             aem_oc = 0.0
+!lm         END SELECT  chem_select_1 
+
 	aem_bc  = fr_aem_mosaic_f(n)*emis_ant(i,k,j,p_e_ecj)  &
 	        + fr_aem_mosaic_c(n)*emis_ant(i,k,j,p_e_ecc)  &
 	        + fr_aem_sorgam_i(n)*emis_ant(i,k,j,p_e_eci)  &

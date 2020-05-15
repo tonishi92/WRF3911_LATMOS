@@ -21,12 +21,12 @@ module purge
 module load intel/15.0.6.233 
 module load openmpi/1.6.5-ifort
 module load netcdf4/4.2.1.1-ifort
-module load hdf5/1.8.14-ifort
+module load hdf5/1.8.10.patch1-ifort
 export CFLAGS="-I/usr/lib64/openmpi/1.6.5-ifort/include -m64"
 export LDFLAGS="-L/usr/lib64/openmpi/1.6.5-ifort/lib -lmpi"
 export NETCDF=/opt/netcdf42/ifort
-export PHDF5=/opt/hdf5/1.8.14/ifort
-export HDF5=/opt/hdf5/1.8.14/ifort
+export PHDF5=/opt/hdf518/ifort
+export HDF5=/opt/hdf518/ifort
 EOF
 source prepare_for_run_ifort
 export MPI_LIB=-L$MPI_LIB
@@ -49,7 +49,7 @@ export HDF5_DISABLE_VERSION_CHECK=1
 
 
 cd $WRFDIR
-./clean -aa
+./clean -a
 
 cd $WRFDIR/chem/KPP/kpp/kpp-2.1/src/
 flex scan.l

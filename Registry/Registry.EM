@@ -21,6 +21,7 @@ include registry.elec
 include registry.bdy_perturb
 include registry.hyb_coord
 include registry.new3d_wif
+include registry.cordex
 
 
 # added to output 5 for ESMF

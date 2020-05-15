@@ -306,9 +306,9 @@ module_sorgam_aqchem.o: module_ctrans_aqchem.o module_data_sorgam.o
  
 module_lightning_nox_ott.o:
 
-module_lightning_nox_decaria.o: ../phys/module_lightning_driver.o
+module_lightning_nox_decaria_cup.o: ../phys/module_lightning_driver.o
 
-module_lightning_nox_driver.o: module_lightning_nox_ott.o module_lightning_nox_decaria.o
+module_lightning_nox_driver.o: module_lightning_nox_ott.o module_lightning_nox_decaria_cup.o
 
 module_cam_mam_gas_wetdep_driver.o: ../frame/module_state_description.o  ../phys/module_cam_support.o ../phys/module_data_cam_mam_asect.o ../phys/module_cam_physconst.o ../phys/module_cam_infnan.o module_cam_mam_mo_sethet.o
 

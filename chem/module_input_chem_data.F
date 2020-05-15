@@ -724,7 +724,8 @@ SUBROUTINE input_chem_profile (si_grid)
 !     si_grid%chem(ims:ime,kms:kme,jms:jme,p_so2) = 0.0001
       si_grid%chem(ims:ime,kms:kme,jms:jme,p_co ) = 0.08
    ELSE IF ( si_grid%chem_opt == CHEM_TRACE2 ) THEN
-      si_grid%chem(ims:ime,kms:kme,jms:jme,p_TRACER_1 ) = 0.08
+!jcr       si_grid%chem(ims:ime,kms:kme,jms:jme,p_TRACER_1 ) = 0.08 \
+      si_grid%chem(ims:ime,kms:kme,jms:jme,p_TRACER_1 ) = 1.e-12
    ELSE IF ( si_grid%chem_opt == CHEM_VASH ) THEN
       si_grid%chem(ims:ime,kms:kme,jms:jme,1:numgas ) = 0.
    ELSE IF ( si_grid%chem_opt == CHEM_VOLC ) THEN
@@ -1174,9 +1175,33 @@ SUBROUTINE input_chem_profile (si_grid)
     else
        chem = conmin
     end if
-    if( nch .eq. p_tracer_1  ) then
-       chem = 0.08
-    endif
+!jcr    if( nch .eq. p_tracer_1  ) then
+!jcr       chem = 0.08
+!jcr    endif
+!jcr
+    if( nch .eq. p_tracer_1  ) chem = 1.e-12
+    if( nch .eq. p_tracer_2  ) chem = 1.e-12
+    if( nch .eq. p_tracer_3  ) chem = 1.e-12
+    if( nch .eq. p_tracer_4  ) chem = 1.e-12
+    if( nch .eq. p_tracer_5  ) chem = 1.e-12
+    if( nch .eq. p_tracer_6  ) chem = 1.e-12
+    if( nch .eq. p_tracer_7  ) chem = 1.e-12
+    if( nch .eq. p_tracer_8  ) chem = 1.e-12
+    if( nch .eq. p_tracer_9  ) chem = 1.e-12
+    if( nch .eq. p_tracer_10 ) chem = 1.e-12
+    if( nch .eq. p_tracer_11 ) chem = 1.e-12
+    if( nch .eq. p_tracer_12 ) chem = 1.e-12
+    if( nch .eq. p_tracer_13 ) chem = 1.e-12
+    if( nch .eq. p_tracer_14 ) chem = 1.e-12
+    if( nch .eq. p_tracer_15 ) chem = 1.e-12
+    if( nch .eq. p_tracer_16 ) chem = 1.e-12
+    if( nch .eq. p_tracer_17 ) chem = 1.e-12
+    if( nch .eq. p_tracer_18 ) chem = 1.e-12
+    if( nch .eq. p_tracer_19 ) chem = 1.e-12
+    if( nch .eq. p_tracer_20 ) chem = 1.e-12
+    if( nch .eq. p_tracer_ens ) chem = 1.e-12
+!jcr
+
 
   END SUBROUTINE bdy_chem_value_tracer
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2198,7 +2223,8 @@ END SUBROUTINE bdy_chem_value_ghg
         get_last_gas = p_co
 
      case (CHEM_TRACE2)
-        get_last_gas = p_tracer_1
+!jcr         get_last_gas = p_tracer_1
+        get_last_gas = p_tracer_ens
 
      case (GOCART_SIMPLE)
         get_last_gas = p_msa

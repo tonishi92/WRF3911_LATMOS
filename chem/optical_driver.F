@@ -10,6 +10,14 @@
 ! WRF-chem V3.0 : Original version of optical_driver written by Jerome Fast (PNNL)
 !                 and James Barnard (PNNL)
 !
+!lm 2015/09: I added a switch, so4_switch. When =0, the so4 mass is set to 0.0
+!before doing the optical calculations in module optical_averaging, thus
+!producing optical properties without SO4
+!lm 2015/07: I added a switch, bc_switch. When =0, the bc mass is set to 0.0
+!before doing the optical calculations in module optical_averaging, thus producing optical properties
+!without BC
+!
+!
 !WRF:MODEL_LAYER:CHEMISTRY
 !
       SUBROUTINE optical_driver(id,curr_secs,dtstep,config_flags,haveaer,&
@@ -30,6 +38,9 @@
                tauaerlw1,tauaerlw2,tauaerlw3,tauaerlw4,tauaerlw5,tauaerlw6, & 
                tauaerlw7,tauaerlw8,tauaerlw9,tauaerlw10,tauaerlw11,tauaerlw12, & 
                tauaerlw13,tauaerlw14,tauaerlw15,tauaerlw16,  & 
+!lm
+               bc_switch, so4_switch, &
+!lm
                ids,ide, jds,jde, kds,kde,                                &
                ims,ime, jms,jme, kms,kme,                                &
                its,ite, jts,jte, kts,kte                                 )
@@ -48,6 +59,9 @@
                                   ids,ide, jds,jde, kds,kde,           &
                                   ims,ime, jms,jme, kms,kme,           &
                                   its,ite, jts,jte, kts,kte
+!lm
+   INTEGER,      INTENT(IN   ) :: bc_switch, so4_switch
+!lm
    REAL(KIND=8), INTENT(IN   ) :: curr_secs
    REAL,         INTENT(IN   ) :: dtstep
 !
@@ -220,6 +234,9 @@
              totoa_a01,totoa_a02,totoa_a03,totoa_a04,                &
              totoa_a05,totoa_a06,totoa_a07,totoa_a08,                &
              tauaerlw,extaerlw,                                      &
+!lm
+             bc_switch, so4_switch, &
+!lm
              ids,ide, jds,jde, kds,kde,                              &
              ims,ime, jms,jme, kms,kme,                              &
              its,ite, jts,jte, kts,kte                               )

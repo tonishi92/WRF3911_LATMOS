@@ -1,10 +1,10 @@
 module purge
 module load intel/15.0.6.233 
 module load openmpi/1.6.5-ifort
-module load netcdf4/4.2.1.1-ifort
+module load netcdf4/4.3.3.1-ifort
 module load hdf5/1.8.14-ifort
 export CFLAGS="-I/usr/lib64/openmpi/1.6.5-ifort/include -m64"
 export LDFLAGS="-L/usr/lib64/openmpi/1.6.5-ifort/lib -lmpi"
-export NETCDF=/opt/netcdf42/ifort
+export NETCDF=/opt/netcdf43/ifort
 export PHDF5=/opt/hdf5/1.8.14/ifort
 export HDF5=/opt/hdf5/1.8.14/ifort

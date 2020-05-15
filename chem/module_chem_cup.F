@@ -3,7 +3,12 @@
 ! include soa in calculation of oa_a_1to4_ic_cup and oa_cw_1to4_ic_cup
 !
 ! account for soa hygroscopicity for droplet activation (??)
-
+!
+!ND 2016/04: Added all dry and wet deposition diagnostic variables for SAPRC99
+!            chemical mechanism and removed previously added diagnostics for 
+!            deposision
+!lm 2015/07: BC deposited by wet scavenging is now accumulated in the 
+!            diagnosis variable wet_dep_bc
 
 !**********************************************************************************  
 ! This computer software was prepared by Battelle Memorial Institute, hereinafter
@@ -111,6 +116,13 @@
             na_a_5to6_ic_cup,  na_cw_5to6_ic_cup,                       &
             cl_a_5to6_ic_cup,  cl_cw_5to6_ic_cup,                       &
             water_5to6_ic_cup,                                          &
+!lm
+!            wet_dep_bc,                                                 &
+!lm
+!ND IC
+!ND add all the species for wet deposition
+            wetd_ct,                                                    &
+!ND
             ids,ide, jds,jde, kds,kde,                                &
             ims,ime, jms,jme, kms,kme,                                &
             its,ite, jts,jte, kts,kte                                 )
@@ -215,7 +227,14 @@
             cl_a_5to6_ic_cup,  cl_cw_5to6_ic_cup,   &
             water_5to6_ic_cup  
 
-
+!!lm bc wet deposition at the surface 
+!      real, dimension( ims:ime, jms:jme ), intent(inout) :: &
+!            wet_dep_bc
+!!lm
+!ND add all the species for wet deposition
+      real, dimension( ims:ime, 1, jms:jme, num_chem ), intent(inout) :: &
+                wetd_ct
+!ND
 
 !-----------------------------------------------------------------
 ! local variables
@@ -274,6 +293,12 @@
                   na_a_5to6_ic_cup,  na_cw_5to6_ic_cup,                       &
                   cl_a_5to6_ic_cup,  cl_cw_5to6_ic_cup,                       &
                   water_5to6_ic_cup,                                          &
+!!lm
+!                  wet_dep_bc,                                                 & 
+!!lm
+!ND IC
+                  wetd_ct,                                      &
+!ND
                   ids,ide, jds,jde, kds,kde,                                &
                   ims,ime, jms,jme, kms,kme,                                &
                   its,ite, jts,jte, kts,kte, kte+1                          )
@@ -320,6 +345,12 @@
             na_a_5to6_ic_cup,  na_cw_5to6_ic_cup,                       &
             cl_a_5to6_ic_cup,  cl_cw_5to6_ic_cup,                       &
             water_5to6_ic_cup,                                          &
+!!lm
+!            wet_dep_bc,                                                 &
+!!lm
+!ND IC
+            wetd_ct,                                                  &
+!ND
             ids,ide, jds,jde, kds,kde,                                &
             ims,ime, jms,jme, kms,kme,                                &
             its,ite, jts,jte, kts,kte, ktep1                          )
@@ -407,6 +438,14 @@
             cl_a_5to6_ic_cup,  cl_cw_5to6_ic_cup,                       &
             water_5to6_ic_cup
 
+!!lm bc wet deposition at the surface 
+!      real, dimension( ims:ime, jms:jme ), intent(inout) :: &
+!            wet_dep_bc
+!!lm
+!ND add all the species for wet deposition
+      real, dimension( ims:ime, 1, jms:jme, num_chem ), intent(inout) :: &
+                wetd_ct 
+!ND
 
       character(len=12), intent(in) :: chem_name(num_chem)
 
@@ -471,6 +510,29 @@
       real(r8) :: zbnd_1d(kts:ktep1)
       real(r8) :: zcen_1d(kts:kte)
 
+!!lm
+!      real(r8) :: bc_dep_ij
+!!lm
+!ND IC added so4 and no3
+      real(r8) :: &
+!Gas phase
+                  wetd_h2o2_ij,      wetd_hno3_ij,      &
+                  wetd_so2_ij,       wetd_h2so4_ij,     &
+                  wetd_nh3_ij,       wetd_hcl_ij,       &
+                  wetd_hcho_ij,      wetd_hcooh_ij,     &
+!Aerosol
+                  wetd_p_so4_ij,     wetd_p_no3_ij,     &
+                  wetd_p_cl_ij,      wetd_p_nh4_ij,     &
+                  wetd_p_na_ij,      wetd_p_oin_ij,     &
+                  wetd_p_oc_ij,      wetd_p_bc_ij,      &
+                  wetd_p_water_ij,   wetd_p_ant1_c_ij,  &
+                  wetd_p_biog1_c_ij
+
+!TO2                  wetd_p_ant2_c_ij,  wetd_p_ant3_c_ij,  &
+!TO2                  wetd_p_ant4_c_ij,  wetd_p_biog1_c_ij, &
+!TO2                  wetd_p_biog2_c_ij, wetd_p_biog3_c_ij, &
+!TO2                  wetd_p_biog4_c_ij
+!ND
 
 !-----------------------------------------------------------------
 
@@ -614,6 +676,42 @@ main_i_loop: &
       fcvt_qc_to_qi_cup_1d(kts:kte) = fcvt_qc_to_qi_cup(i,kts:kte,j)
       fcvt_qi_to_pr_cup_1d(kts:kte) = fcvt_qi_to_pr_cup(i,kts:kte,j)
 
+!!lm
+!      bc_dep_ij = wet_dep_bc(i,j)
+!!lm
+!ND Sloppily add wet deposition output
+      if ( config_flags%diagnostic_chem == DEPOUT1 .and. &
+         ( config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP )) then
+! Gas phase
+            wetd_h2o2_ij      = wetd_ct(i,1,j,p_wetd_h2o2)
+            wetd_hno3_ij      = wetd_ct(i,1,j,p_wetd_hno3)
+            wetd_so2_ij       = wetd_ct(i,1,j,p_wetd_so2)
+            wetd_h2so4_ij     = wetd_ct(i,1,j,p_wetd_h2so4)
+            wetd_nh3_ij       = wetd_ct(i,1,j,p_wetd_nh3)
+            wetd_hcl_ij       = wetd_ct(i,1,j,p_wetd_hcl)
+            wetd_hcho_ij      = wetd_ct(i,1,j,p_wetd_hcho)
+            wetd_hcooh_ij       = wetd_ct(i,1,j,p_wetd_hcooh)
+!Aerosol
+            wetd_p_so4_ij     = wetd_ct(i,1,j,p_wetd_p_so4)
+            wetd_p_no3_ij     = wetd_ct(i,1,j,p_wetd_p_no3)
+            wetd_p_cl_ij      = wetd_ct(i,1,j,p_wetd_p_cl)
+            wetd_p_nh4_ij     = wetd_ct(i,1,j,p_wetd_p_nh4)
+            wetd_p_na_ij      = wetd_ct(i,1,j,p_wetd_p_na)
+            wetd_p_oin_ij     = wetd_ct(i,1,j,p_wetd_p_oin)
+            wetd_p_oc_ij      = wetd_ct(i,1,j,p_wetd_p_oc)
+            wetd_p_bc_ij      = wetd_ct(i,1,j,p_wetd_p_bc)
+            wetd_p_water_ij   = wetd_ct(i,1,j,p_wetd_p_water)
+            wetd_p_ant1_c_ij  = wetd_ct(i,1,j,p_wetd_p_ant1_c)
+!TO2            wetd_p_ant2_c_ij  = wetd_ct(i,1,j,p_wetd_p_ant2_c)
+!TO2            wetd_p_ant3_c_ij  = wetd_ct(i,1,j,p_wetd_p_ant3_c)
+!TO2            wetd_p_ant4_c_ij  = wetd_ct(i,1,j,p_wetd_p_ant4_c)
+            wetd_p_biog1_c_ij = wetd_ct(i,1,j,p_wetd_p_biog1_c)
+!TO2            wetd_p_biog2_c_ij = wetd_ct(i,1,j,p_wetd_p_biog2_c)
+!TO2            wetd_p_biog3_c_ij = wetd_ct(i,1,j,p_wetd_p_biog3_c)
+!TO2            wetd_p_biog4_c_ij = wetd_ct(i,1,j,p_wetd_p_biog4_c)
+      endif
+!ND
+
       if ( mode_chemcup_timeinteg == 1 ) then
          ! simulate the entire cumulus cloud fraction using substeps of dt = dtstepc
          !    also force dtsub <= nca+dtstep because tcloud_cup may not be an
@@ -699,7 +797,38 @@ main_i_loop: &
          ncomp_aer, nphase_aer, nsize_aer, ntype_aer, &
          ai_phase, cw_phase, msectional, &
          massptr_aer, numptr_aer, &
-         lptr_cl_aer, lptr_nh4_aer, lptr_no3_aer, lptr_oin_aer, lptr_so4_aer, &
+!ND
+         lptr_cl_aer, lptr_na_aer, lptr_nh4_aer, lptr_no3_aer, &
+         lptr_oc_aer, lptr_oin_aer, lptr_so4_aer, lptr_bc_aer, &
+!         lptr_pcg1_b_c_aer,lptr_pcg1_b_o_aer,lptr_opcg1_b_c_aer, &
+!         lptr_opcg1_b_o_aer,lptr_pcg1_f_c_aer,lptr_pcg1_f_o_aer, &
+!         lptr_opcg1_f_c_aer, lptr_opcg1_f_o_aer, &
+         lptr_ant1_c_aer, &
+         lptr_biog1_c_aer, &
+!         lptr_cl_aer, lptr_nh4_aer, lptr_no3_aer, lptr_oin_aer, lptr_so4_aer, &
+!ND
+!!lm
+!         lptr_bc_aer, bc_dep_ij, &
+!!lm
+!ND IC added so4 and no3 deposition
+!         lptr_bc_aer, 
+!Gas phase
+          wetd_h2o2_ij,      wetd_hno3_ij,      &
+          wetd_so2_ij,       wetd_h2so4_ij,     &
+          wetd_nh3_ij,       wetd_hcl_ij,       &
+          wetd_hcho_ij,      wetd_hcooh_ij,     &
+!Aerosol
+          wetd_p_so4_ij,     wetd_p_no3_ij,     &
+          wetd_p_cl_ij,      wetd_p_nh4_ij,     &
+          wetd_p_na_ij,      wetd_p_oin_ij,     &
+          wetd_p_oc_ij,      wetd_p_bc_ij,      &
+          wetd_p_water_ij,   wetd_p_ant1_c_ij,  &
+          wetd_p_biog1_c_ij, &
+!TO2          wetd_p_ant2_c_ij,  wetd_p_ant3_c_ij,  &
+!TO2          wetd_p_ant4_c_ij,  wetd_p_biog1_c_ij, &
+!TO2          wetd_p_biog2_c_ij, wetd_p_biog3_c_ij, &
+!TO2          wetd_p_biog4_c_ij, &
+!ND
          dlo_sect, dhi_sect, dens_aer, hygro_aer, sigmag_aer )
 
       write(*,'(/a,4i10)') &
@@ -707,6 +836,41 @@ main_i_loop: &
 
       chem_cupflag(i,kts:kte,j) = chem_cupflag_1d(kts:kte) 
 
+!!lm
+!      wet_dep_bc(i,j) = bc_dep_ij
+!!lm
+!ND Sloppily add wet deposition output
+      if ( config_flags%diagnostic_chem == DEPOUT1 .and. &
+         ( config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP )) then
+! Gas phase
+            wetd_ct(i,1,j,p_wetd_h2o2)      = wetd_h2o2_ij
+            wetd_ct(i,1,j,p_wetd_hno3)      = wetd_hno3_ij
+            wetd_ct(i,1,j,p_wetd_so2)       = wetd_so2_ij
+            wetd_ct(i,1,j,p_wetd_h2so4)     = wetd_h2so4_ij
+            wetd_ct(i,1,j,p_wetd_nh3)       = wetd_nh3_ij
+            wetd_ct(i,1,j,p_wetd_hcl)       = wetd_hcl_ij
+            wetd_ct(i,1,j,p_wetd_hcho)      = wetd_hcho_ij
+            wetd_ct(i,1,j,p_wetd_hcooh)     = wetd_hcooh_ij
+!Aerosol
+            wetd_ct(i,1,j,p_wetd_p_so4)     = wetd_p_so4_ij
+            wetd_ct(i,1,j,p_wetd_p_no3)     = wetd_p_no3_ij
+            wetd_ct(i,1,j,p_wetd_p_cl)      = wetd_p_cl_ij
+            wetd_ct(i,1,j,p_wetd_p_nh4)     = wetd_p_nh4_ij
+            wetd_ct(i,1,j,p_wetd_p_na)      = wetd_p_na_ij
+            wetd_ct(i,1,j,p_wetd_p_oin)     = wetd_p_oin_ij
+            wetd_ct(i,1,j,p_wetd_p_oc)      = wetd_p_oc_ij
+            wetd_ct(i,1,j,p_wetd_p_bc)      = wetd_p_bc_ij
+            wetd_ct(i,1,j,p_wetd_p_water)   = wetd_p_water_ij
+            wetd_ct(i,1,j,p_wetd_p_ant1_c)  = wetd_p_ant1_c_ij
+!TO2            wetd_ct(i,1,j,p_wetd_p_ant2_c)  = wetd_p_ant2_c_ij
+!TO2            wetd_ct(i,1,j,p_wetd_p_ant3_c)  = wetd_p_ant3_c_ij
+!TO2            wetd_ct(i,1,j,p_wetd_p_ant4_c)  = wetd_p_ant4_c_ij
+            wetd_ct(i,1,j,p_wetd_p_biog1_c) = wetd_p_biog1_c_ij
+!TO2            wetd_ct(i,1,j,p_wetd_p_biog2_c) = wetd_p_biog2_c_ij
+!TO2            wetd_ct(i,1,j,p_wetd_p_biog3_c) = wetd_p_biog3_c_ij
+!TO2            wetd_ct(i,1,j,p_wetd_p_biog4_c) = wetd_p_biog4_c_ij
+      endif
+!ND
       chem(i,kts:kte,j,1:num_chem) = chem_1d(kts:kte,1:num_chem)
 
 !     call wrf_error_fatal( 'aborting after first call to chem_cup_1d' )
@@ -900,14 +1064,48 @@ main_i_loop: &
          ncomp_aer, nphase_aer, nsize_aer, ntype_aer, &
          ai_phase, cw_phase, msectional, &
          massptr_aer, numptr_aer, &
-         lptr_cl_aer, lptr_nh4_aer, lptr_no3_aer, lptr_oin_aer, lptr_so4_aer, &
+!ND
+         lptr_cl_aer, lptr_na_aer, lptr_nh4_aer, lptr_no3_aer, &
+         lptr_oc_aer, lptr_oin_aer, lptr_so4_aer, lptr_bc_aer, &
+!         lptr_pcg1_b_c_aer,lptr_pcg1_b_o_aer,lptr_opcg1_b_c_aer, &
+!         lptr_opcg1_b_o_aer,lptr_pcg1_f_c_aer,lptr_pcg1_f_o_aer, &
+!         lptr_opcg1_f_c_aer, lptr_opcg1_f_o_aer, &
+         lptr_ant1_c_aer, &
+         lptr_biog1_c_aer, &
+!         lptr_cl_aer, lptr_nh4_aer, lptr_no3_aer, lptr_oin_aer, lptr_so4_aer, &
+!ND
+!!lm
+!         lptr_bc_aer, bc_dep_ij, &
+!!lm
+!ND IC added so4 and no3 deposition
+!         lptr_bc_aer, 
+!Gas phase
+          wetd_h2o2_ij,      wetd_hno3_ij,      &
+          wetd_so2_ij,       wetd_h2so4_ij,     &
+          wetd_nh3_ij,       wetd_hcl_ij,       &
+          wetd_hcho_ij,      wetd_hcooh_ij,     &
+!Aerosol
+          wetd_p_so4_ij,     wetd_p_no3_ij,     &
+          wetd_p_cl_ij,      wetd_p_nh4_ij,     &
+          wetd_p_na_ij,      wetd_p_oin_ij,     &
+          wetd_p_oc_ij,      wetd_p_bc_ij,      &
+          wetd_p_water_ij,   wetd_p_ant1_c_ij,  &
+          wetd_p_biog1_c_ij, &
+!TO2          wetd_p_ant2_c_ij,  wetd_p_ant3_c_ij,  &
+!TO2          wetd_p_ant4_c_ij,  wetd_p_biog1_c_ij, &
+!TO2          wetd_p_biog2_c_ij, wetd_p_biog3_c_ij, &
+!TO2          wetd_p_biog4_c_ij,                    &
+!ND
          dlo_sect, dhi_sect, dens_aer, hygro_aer, sigmag_aer )
 
       use module_configure, only:  grid_config_rec_type
       use module_configure, only:  &
          p_qc, &
-         p_h2o2, p_hcl, p_hno3, p_nh3, p_so2, p_sulf
-
+!ND         p_h2o2, p_hcl, p_hno3, p_nh3, p_so2, p_sulf
+         p_h2o2, p_hcl, p_hno3, p_nh3, p_so2, p_sulf, p_h2so4, &
+         p_hcho, p_hcooh
+      USE module_model_constants, ONLY: mwdry
+!ND
 ! arguments
 !
 ! note: arguments ending in "_inp" may be adjusted for consistency
@@ -933,11 +1131,34 @@ main_i_loop: &
          ncomp_aer( maxd_atype ), &
          massptr_aer( maxd_acomp, maxd_asize, maxd_atype, maxd_aphase ), &
          numptr_aer( maxd_asize, maxd_atype, maxd_aphase ), &
-         lptr_so4_aer(maxd_asize, maxd_atype, maxd_aphase), &
-         lptr_oin_aer(maxd_asize, maxd_atype, maxd_aphase), &
-         lptr_no3_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_so4_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_oin_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_no3_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_nh4_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!!lm
+!         lptr_bc_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!!lm
+!         lptr_cl_aer(maxd_asize, maxd_atype, maxd_aphase)
+!ND
+         lptr_cl_aer(maxd_asize, maxd_atype, maxd_aphase), &
+         lptr_na_aer(maxd_asize, maxd_atype, maxd_aphase), &
          lptr_nh4_aer(maxd_asize, maxd_atype, maxd_aphase), &
-         lptr_cl_aer(maxd_asize, maxd_atype, maxd_aphase)
+         lptr_no3_aer(maxd_asize, maxd_atype, maxd_aphase), &
+         lptr_oc_aer(maxd_asize, maxd_atype, maxd_aphase), &
+         lptr_oin_aer(maxd_asize, maxd_atype, maxd_aphase), &
+         lptr_so4_aer(maxd_asize, maxd_atype, maxd_aphase), &
+         lptr_bc_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_pcg1_b_c_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_pcg1_b_o_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_opcg1_b_c_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_opcg1_b_o_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_pcg1_f_c_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_pcg1_f_o_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_opcg1_f_c_aer(maxd_asize, maxd_atype, maxd_aphase), &
+!         lptr_opcg1_f_o_aer(maxd_asize, maxd_atype, maxd_aphase), &
+         lptr_ant1_c_aer(maxd_asize, maxd_atype, maxd_aphase), &
+         lptr_biog1_c_aer(maxd_asize, maxd_atype, maxd_aphase)
+!ND
       real(r4), intent(in) :: &
          dlo_sect( maxd_asize, maxd_atype ), &
          dhi_sect( maxd_asize, maxd_atype ), &
@@ -979,6 +1200,31 @@ main_i_loop: &
          chem_incu        ! in-convective-cloud aerosol and trace-gas mixing ratios (ug/kg, #/kg, or ppmv)
 
       character(len=12), intent(in) :: chem_name(num_chem)
+
+!!lm
+!     real(r8), intent(inout) :: &
+!         bc_dep_ij
+!!lm
+!ND
+     real(r8), intent(inout) :: &
+!Gas phase
+         wetd_h2o2_ij,      wetd_hno3_ij,      &
+         wetd_so2_ij,       wetd_h2so4_ij,     &
+         wetd_nh3_ij,       wetd_hcl_ij,       &
+         wetd_hcho_ij,      wetd_hcooh_ij,     &
+!Aerosol
+         wetd_p_so4_ij,     wetd_p_no3_ij,     &
+         wetd_p_cl_ij,      wetd_p_nh4_ij,     &
+         wetd_p_na_ij,      wetd_p_oin_ij,     &
+         wetd_p_oc_ij,      wetd_p_bc_ij,      &
+         wetd_p_water_ij,   wetd_p_ant1_c_ij,  &
+         wetd_p_biog1_c_ij
+!TO2         wetd_p_water_ij,   wetd_p_ant1_c_ij,  &
+!TO2         wetd_p_ant2_c_ij,  wetd_p_ant3_c_ij,  &
+!TO2         wetd_p_ant4_c_ij,  wetd_p_biog1_c_ij, &
+!TO2         wetd_p_biog2_c_ij, wetd_p_biog3_c_ij, &
+!TO2         wetd_p_biog4_c_ij
+!ND
 
 ! local variables
       integer :: aip, cwp, typ
@@ -2155,6 +2401,73 @@ dndraft_mixratio_k_loop: &
          chem_name ) 
       end if ! (idiagaa > 0)
 
+!!lm BC wet deposition from cup in ug m^-2
+!      do itype = 1, ntype_aer
+!         do isize = 1, nsize_aer(itype)
+!            bc_dep_ij = bc_dep_ij +  &
+!                        sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_bc_aer(isize,itype,ai_phase))) + &
+!                        sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_bc_aer(isize,itype,cw_phase)))
+!         end do
+!      end do
+!!lm
+
+!ND IC added SO4 and NO3
+!      if ( config_flags%diagnostic_chem == DEPOUT1 .and. &
+!         ( config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP )) then
+!Gas phase
+                                  
+! Speculating about the units: 
+! - rhodz: kg/m2
+! - del_chem_wetrem: ppm-->umol/mol
+
+      wetd_h2o2_ij  = wetd_h2o2_ij + &
+           sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,p_h2o2))*1e-3/mwdry
+      wetd_hno3_ij  = wetd_hno3_ij + &
+           sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,p_hno3))*1e-3/mwdry
+      wetd_so2_ij   = wetd_so2_ij + &
+           sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,p_so2))*1e-3/mwdry
+      wetd_h2so4_ij = wetd_h2so4_ij + &
+           sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,p_h2so4))*1e-3/mwdry
+      wetd_nh3_ij   = wetd_nh3_ij + &
+           sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,p_nh3))*1e-3/mwdry
+      wetd_hcl_ij   = wetd_hcl_ij + &
+           sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,p_hcl))*1e-3/mwdry
+      wetd_hcho_ij  = wetd_hcho_ij + &
+           sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,p_hcho))*1e-3/mwdry
+      wetd_hcooh_ij = wetd_hcooh_ij + &
+           sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,p_hcooh))*1e-3/mwdry
+!Aerosol
+            do itype = 1, ntype_aer
+               do isize = 1, nsize_aer(itype)
+!ND sloppily add all species
+                  wetd_p_so4_ij     =  wetd_p_so4_ij + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_so4_aer(isize,itype,ai_phase))) + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_so4_aer(isize,itype,cw_phase)))
+                  wetd_p_no3_ij     =  wetd_p_no3_ij + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_no3_aer(isize,itype,ai_phase))) + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_no3_aer(isize,itype,cw_phase)))
+                  wetd_p_cl_ij      =  wetd_p_cl_ij + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_cl_aer(isize,itype,ai_phase))) + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_cl_aer(isize,itype,cw_phase)))
+                  wetd_p_nh4_ij     =  wetd_p_nh4_ij + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_nh4_aer(isize,itype,ai_phase))) + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_nh4_aer(isize,itype,cw_phase)))
+                  wetd_p_na_ij      =  wetd_p_na_ij + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_na_aer(isize,itype,ai_phase))) + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_na_aer(isize,itype,cw_phase)))
+                  wetd_p_oin_ij     =  wetd_p_oin_ij + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_oin_aer(isize,itype,ai_phase))) + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_oin_aer(isize,itype,cw_phase)))
+                  wetd_p_oc_ij      =  wetd_p_oc_ij + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_oc_aer(isize,itype,ai_phase))) + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_oc_aer(isize,itype,cw_phase)))
+                  wetd_p_bc_ij      =  wetd_p_bc_ij + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_bc_aer(isize,itype,ai_phase))) + &
+                     sum(rhodz(kts:kte)*del_chem_wetrem(kts:kte,lptr_bc_aer(isize,itype,cw_phase)))
+               end do
+            end do
+!      endif
+!ND
 
 ! put final mixing ratios into chem
       chem(:,:) = chem_av_new(:,:)
@@ -3087,12 +3400,24 @@ dndraft_mixratio_k_loop: &
       else
          if (qcw < qcw_inup_smallaa) return
          smax_prescribed_sp = 0.001  ! 0.1% supersaturation
+
+!lm use the calculated smax for a test
+!         call activate( &
+!                      wact_sp, 0.0, 0.0, 0.0, 1.0, tcen_sp, rhocen_sp,  &
+!                      msectional, maxd_atype, ntype_aer, maxd_asize, nsize_aer,&
+!                      numbr_sp, volum_sp, dlo_sect, dhi_sect, sigmag_aer, hygro_sp, &
+!                      fn_sp, fs_sp, fm_sp, fluxn_sp, fluxs_sp, fluxm_sp, flux_fullact_sp, &
+!                      grid_id, ktau, i, j, k)
+
+!         smax_prescribed_sp = 0.1
+
          call activate( &
                       wact_sp, 0.0, 0.0, 0.0, 1.0, tcen_sp, rhocen_sp,  &
                       msectional, maxd_atype, ntype_aer, maxd_asize, nsize_aer,    &
                       numbr_sp, volum_sp, dlo_sect, dhi_sect, sigmag_aer, hygro_sp, &
                       fn_sp, fs_sp, fm_sp, fluxn_sp, fluxs_sp, fluxm_sp, flux_fullact_sp, &
                       grid_id, ktau, i, j, k, smax_prescribed_sp )
+!lm
       end if
 
       fn = fn_sp

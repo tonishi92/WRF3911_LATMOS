@@ -1503,6 +1503,10 @@ is_mozm_species : &
                       ELSE IF ( p_in_chem .EQ. p_ch3oh) THEN	
                          ebio_ch3oh(i,j)      = ebio_ch3oh(i,j)     + gas_emis
                          e_bio(i,j,p_ch3oh-1) = e_bio(i,j,p_ch3oh-1)+ gas_emis*convert2
+!jcr
+                      ELSE IF ( p_in_chem .EQ. p_ch4) THEN
+                         e_bio(i,j,p_ch4-1) = e_bio(i,j,p_ch4-1) + gas_emis*convert2
+!jcr
                       ELSE IF ( p_in_chem .EQ. p_c2h5oh) THEN	
                          ebio_c2h5oh(i,j)     = ebio_c2h5oh(i,j)      + gas_emis
                          e_bio(i,j,p_c2h5oh-1)= e_bio(i,j,p_c2h5oh-1) + gas_emis*convert2
@@ -1512,7 +1516,11 @@ is_mozm_species : &
                       ELSE IF ( p_in_chem .EQ. p_tol) THEN	
                          ebio_tol(i,j)       = ebio_tol(i,j)        + gas_emis
                          e_bio(i,j,p_tol-1)  = e_bio(i,j,p_tol-1)   + gas_emis*convert2
-
+!jcr
+                      ELSE IF ( p_in_chem .EQ. p_dms) THEN
+!                         ebio_dms(i,j)       = ebio_dms(i,j)        + gas_emis  !TO
+                         e_bio(i,j,p_dms-1) = e_bio(i,j,p_dms-1) + gas_emis*convert2
+!jcr
                       END IF
 
 

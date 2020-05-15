@@ -11,6 +11,12 @@
 !
 ! Contact: J. Wong <johnwong@ucar.edu>
 !
+!lm 2015/09: added an option decaria for nox emissions coupled with KFCuP
+!            Right now, this overrides the standard lightning_option=11 method.
+!            In the future, I should either 1) add another lightning_option or
+!            2) use cldfra_dp instead of cldfra_cup (cldfra from deep convection
+!            from the cumulus schemes in 3.6 and later versions, right now KFCuP
+!            uses a different name than all other schemes)
 !**********************************************************************
  MODULE module_lightning_nox_driver
   CONTAINS
@@ -32,6 +38,9 @@
                           ! Scheme specific namelist inputs
                             ltng_temp_upper,ltng_temp_lower,      &
                             cellcount_method,                     & ! This is in the physics namelist
+!lm
+                            cldfra_cup, htop,                     &
+!lm
                           ! Order dependent args for domain, mem, and tile dims
                             ids, ide, jds, jde, kds, kde,         &
                             ims, ime, jms, jme, kms, kme,         &
@@ -50,7 +59,8 @@
 
 ! Methods
  USE module_lightning_nox_ott
- USE module_lightning_nox_decaria, only: lightning_nox_decaria
+!lm USE module_lightning_nox_decaria, only: lightning_nox_decaria
+ USE module_lightning_nox_decaria_cup, only: lightning_nox_decaria_cup
 
  IMPLICIT NONE
 !-----------------------------------------------------------------
@@ -62,6 +72,10 @@
  REAL,    DIMENSION( ims:ime,          jms:jme ),           INTENT(IN   ) :: xlat, xlon, xland, ht
  REAL,    DIMENSION( ims:ime, kms:kme, jms:jme ),           INTENT(IN   ) :: t_phy, p_phy, rho
  REAL,    DIMENSION( ims:ime, kms:kme, jms:jme ),           INTENT(IN   ) :: u, v, w, z
+!lm
+ REAL,    DIMENSION( ims:ime, kms:kme, jms:jme ),           INTENT(IN   ) :: cldfra_cup
+ REAL,    DIMENSION( ims:ime,          jms:jme ),           INTENT(IN   ) :: htop
+!lm
  REAL,    DIMENSION( ims:ime, kms:kme, jms:jme, num_moist), INTENT(IN   ) :: moist
 
  REAL,    DIMENSION( ims:ime,          jms:jme ),           INTENT(IN   ) :: ic_flashrate  , cg_flashrate ! #/sec
@@ -126,16 +140,33 @@
               )
 
    CASE(lnox_opt_decaria)
-      CALL lightning_nox_decaria ( &
+!lm
+!      CALL lightning_nox_decaria ( &
+!              ! Frequently used prognostics
+!                dx, dy, xland, ht, t_phy, rho, z, p_phy,      &
+!                ic_flashrate, cg_flashrate,           & ! flashes (#/s)
+!              ! Scheme specific prognostics
+!                refl,                                 &
+!              ! Namelist inputs
+!                N_IC, N_CG,                           &
+!                ltng_temp_upper,ltng_temp_lower,      &
+!                cellcount_method,                     &
+!              ! Order dependent args for domain, mem, and tile dims
+!                ids, ide, jds, jde, kds, kde,         &
+!                ims, ime, jms, jme, kms, kme,         &
+!                its, ite, jts, jte, kts, kte,         &
+!              ! outputs
+!                lnox_ic_tend, lnox_cg_tend            & ! tendency (ppmv/s)
+!              )
+      CALL lightning_nox_decaria_cup ( &
               ! Frequently used prognostics
                 dx, dy, xland, ht, t_phy, rho, z, p_phy,      &
                 ic_flashrate, cg_flashrate,           & ! flashes (#/s)
               ! Scheme specific prognostics
-                refl,                                 &
+                cldfra_cup, htop,                     &
               ! Namelist inputs
                 N_IC, N_CG,                           &
                 ltng_temp_upper,ltng_temp_lower,      &
-                cellcount_method,                     &
               ! Order dependent args for domain, mem, and tile dims
                 ids, ide, jds, jde, kds, kde,         &
                 ims, ime, jms, jme, kms, kme,         &
@@ -143,6 +174,7 @@
               ! outputs
                 lnox_ic_tend, lnox_cg_tend            & ! tendency (ppmv/s)
               )
+!lm
     ! Invalid lightning NOx options
     CASE DEFAULT
         WRITE(wrf_err_message, * ) ' lightning_nox_driver: The lightning nox option does not exist: lnox_opt = ', lnox_opt

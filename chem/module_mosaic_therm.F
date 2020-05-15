@@ -5244,7 +5244,9 @@
       enddo
 ! Calculate pre-existing moles of OA (cpx) as sum of all size bins
         do ibin=1,nbin_a
-        cpxaged= cpxaged+aer(ioc_a,jp,ibin)
+!lm remove this to avoid POA (here, in OC) and SOA mixing
+!        cpxaged= cpxaged+aer(ioc_a,jp,ibin)
+!lm
          enddo
 
 !  Maps arrays starting from start_ind or ipcg1_b_c_g on to corresponding arrays starting from 1 for just soa species

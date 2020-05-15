@@ -290,7 +290,9 @@ lev_loop_a : &
         do while( p_phy(i,lev_relax,j) > ub_p_m(ub_lev_n) ) ! ub_p_m(ub_lev_n)= 440 mb
           lev_relax = lev_relax + 1                         ! move level upward                       
         end do
-
+!TO2 : replace the lower end of relaxing zone at the midpoint of tropopause and upper boundary 
+!        lev_relax = int(0.5*(lev_relax + kmax))
+!TO2 
         if( lev_relax /= tropo_lev(i,j) ) then
           write(message,*) 'upper_bc_driver:Warning,raised ubc: at j,i,=  ',j,i
           call wrf_message( trim(message) )
@@ -790,6 +792,10 @@ species_loop : &
 
     fac_relax = 1. - exp( -real(dt)/tau_relax )
 
+!!TO2
+!    fac_relax = 0.0
+!!TO2
+!
 !--------------------------------------------------------
 
       if( id == max_dom ) then

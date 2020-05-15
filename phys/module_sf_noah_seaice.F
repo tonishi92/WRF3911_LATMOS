@@ -1,4 +1,6 @@
 MODULE module_sf_noah_seaice
+#define BPRC_MODS
+!!#define ALTERNATE_SFCT
   USE module_model_constants, only : CP, R_D, XLF, XLV, RHOWATER, STBOLT
   use module_sf_noahlsm, only : RD, SIGMA, CPH2O, CPICE, LSUBF, EMISSI_S, &
        &                        HSTEP
@@ -284,6 +286,10 @@ CONTAINS
          CALL wrf_error_fatal ( 'Physical snow depth is less than snow water equiv.' )
       ENDIF
       CALL CSNOW (SNCOND,SNDENS)
+#ifdef BPRC_MODS
+! snow conductivity over sea ice from Persson (2012, Clim. Dyn., 39, 1349-1371) and Sturm, Perovich and Holmgren (2002, JGR, 107(C21), 8043)
+      SNCOND = 0.3
+#endif
 
 ! ----------------------------------------------------------------------
 ! DETERMINE IF IT'S PRECIPITATING AND WHAT KIND OF PRECIP IT IS.
@@ -332,6 +338,10 @@ CONTAINS
          ENDIF
 
          CALL CSNOW (SNCOND,SNDENS)
+#ifdef BPRC_MODS
+! snow conductivity over sea ice from Persson (2012, Clim. Dyn., 39, 1349-1371) and Sturm, Perovich and Holmgren (2002, JGR, 107(C21), 8043)
+      SNCOND = 0.3
+#endif
 
       END IF
 

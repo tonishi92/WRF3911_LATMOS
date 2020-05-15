@@ -55,7 +55,6 @@ CONTAINS
 
 !     USE module_domain, ONLY : domain, domain_clock_get, get_ijk_from_subgrid
       USE module_domain, ONLY : domain, domain_clock_get, domain_get_current_time
-
       !  All of the information from the namelist is in config_flags.  The
       !  type declaration for this puppy must be available.  While each domain
       !  has a config_flags, together they are stored in model_config_rec.
@@ -199,6 +198,10 @@ CONTAINS
           ! Scheme specific prognostics
             grid%ktop_deep, grid%refl_10cm,                    &
             domain_get_current_time( grid ),                   &
+!lm Additional inputs for lightning param with KF-CuP cumuli
+            config_flags%cu_physics,                           &
+            grid%msft, grid%cldfra_cup, grid%htop, grid%shall, &
+!lm
           ! Flashrate namelist inputs
             config_flags%lightning_option,                     &
             config_flags%lightning_dt,                         &
@@ -817,8 +820,6 @@ CONTAINS
 
 
       !  Pressure level diagnostics.
-
-
       PL_DIAGNOSTICS : IF ( config_flags%p_lev_diags .NE. SKIP_PRESS_DIAGS ) THEN
 
       !  Process the diags if this is the correct time step OR
@@ -1110,8 +1111,6 @@ CONTAINS
            ,NUM_TILES=grid%num_tiles                                          &
                                                                    )
       END IF RASM_DIAGS_DIURNAL
-
-
 
 
    END SUBROUTINE diagnostics_driver

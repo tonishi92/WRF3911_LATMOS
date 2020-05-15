@@ -1,5 +1,6 @@
 #if ( ! NMM_CORE == 1 )
-
+#define BPRC_SI_TEMPERATURE
+#define BPRC_MODS
 MODULE module_soil_pre
 
    USE module_date_time
@@ -50,6 +51,11 @@ CONTAINS
    SUBROUTINE adjust_for_seaice_pre ( xice , landmask , tsk , ivgtyp , vegcat , lu_index , &
                                       xland , landusef , isltyp , soilcat , soilctop , &
                                       soilcbot , tmn , &
+#ifdef BPRC_MODS
+! bai ========================================================================20160916
+                                      icedepth , snowsi , albsi, &
+! ====================================================================================
+#endif
                                       seaice_threshold , &
                                       fractional_seaice, &
                                       num_veg_cat , num_soil_top_cat , num_soil_bot_cat , &
@@ -73,6 +79,11 @@ CONTAINS
       INTEGER , DIMENSION(ims:ime,jms:jme), INTENT(OUT) :: isltyp , ivgtyp
       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: landmask , xice , tsk , lu_index , &
                                                            vegcat, xland , soilcat , tmn
+#ifdef BPRC_MODS
+! bai ============================================================================20160916
+      REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: icedepth , snowsi , albsi
+! ========================================================================================
+#endif
       REAL , INTENT(IN) :: seaice_threshold
 
       INTEGER :: i , j , num_seaice_changes , loop
@@ -96,6 +107,13 @@ CONTAINS
                   IF ( skip_middle_points_t ( ids , ide , jds , jde , i , j , em_width , hold_ups ) ) CYCLE 
                   IF ( xice(i,j) .GT. 200.0 ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                      num_seaice_changes = num_seaice_changes + 1
                   END IF
                END DO
@@ -110,8 +128,13 @@ CONTAINS
             DO j = jts , MIN(jde-1,jte)
                DO i = its , MIN(ide-1,ite)
                   IF ( skip_middle_points_t ( ids , ide , jds , jde , i , j , em_width , hold_ups ) ) CYCLE 
+#ifdef BPRC_SI_TEMPERATURE
+! only xice, not tsk, used for sea ice setting.
+                  IF ( xice(i,j) .GE. xice_threshold ) THEN
+#else
                   IF ( ( xice(i,j) .GE. xice_threshold ) .OR. &
                        ( ( landmask(i,j) .LT. 0.5 ) .AND. ( tsk(i,j) .LT. seaice_threshold ) ) ) THEN
+#endif
                      IF ( FRACTIONAL_SEAICE == 0 ) THEN
                         xice(i,j) = 1.0
                      ENDIF
@@ -139,6 +162,13 @@ CONTAINS
                      soilcbot(i,isltyp(i,j),j)=1.
                   ELSE
                      xice(i,j) = 0.0
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                   END IF
                END DO
             END DO
@@ -156,6 +186,13 @@ CONTAINS
                   IF ( landmask(i,j) .GT. 0.5 ) THEN
                      if (xice(i,j).gt.0) num_seaice_changes = num_seaice_changes + 1
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                   END IF
                END DO
             END DO
@@ -180,6 +217,11 @@ CONTAINS
                                       num_soil_layers , &
                                       iswater , isice , &
                                       scheme , &
+#ifdef BPRC_MODS
+! bai ========================================================================20141125
+                                      icedepth , snowsi , albsi, &
+! ================================================================================
+#endif
                                       ids , ide , jds , jde , kds , kde , &
                                       ims , ime , jms , jme , kms , kme , &
                                       its , ite , jts , jte , kts , kte )
@@ -202,6 +244,11 @@ CONTAINS
       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: landmask , xice , tsk , lu_index , &
                                                            vegcat, xland , soilcat , tmn , &
                                                            tsk_old , vegfra
+#ifdef BPRC_MODS
+! bai ============================================================================20141125
+      REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: icedepth , snowsi , albsi
+! ========================================================================================
+#endif
       INTEGER , INTENT(IN) :: flag_sst
       REAL , INTENT(IN) :: seaice_threshold
       REAL :: total_depth , mid_point_depth
@@ -230,6 +277,13 @@ CONTAINS
                   IF ( skip_middle_points_t ( ids , ide , jds , jde , i , j , em_width , hold_ups ) ) CYCLE 
                   IF ( xice(i,j) .GT. 200.0 ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                      num_seaice_changes = num_seaice_changes + 1
                   END IF
                END DO
@@ -252,8 +306,13 @@ CONTAINS
                        ( ( tsk_old(i,j) .LT. 170 ) .OR. ( tsk_old(i,j) .GT. 400 ) ) )THEN
                      print *,'TSK woes in seaice post, i,j=',i,j,'  tsk = ',tsk(i,j), tsk_old(i,j)
                      CALL wrf_error_fatal ( 'TSK is unrealistic, problems for seaice post')
+#ifdef BPRC_SI_TEMPERATURE
+! only xice, not tsk, used for sea ice setting.
+                  ELSE IF ( xice(i,j) .GE. xice_threshold ) THEN
+#else
                   ELSE IF ( ( xice(i,j) .GE. xice_threshold ) .OR. &
                        ( ( landmask(i,j) .LT. 0.5 ) .AND. ( tsk(i,j) .LT. seaice_threshold ) ) ) THEN
+#endif
                      IF ( FRACTIONAL_SEAICE == 0 ) THEN
                         xice(i,j) = 1.0
                      ENDIF
@@ -297,6 +356,13 @@ CONTAINS
                      END DO
                   ELSE IF ( xice(i,j) .LT. xice_threshold ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                   END IF
                END DO
             END DO
@@ -312,6 +378,13 @@ CONTAINS
                   IF ( skip_middle_points_t ( ids , ide , jds , jde , i , j , em_width , hold_ups ) ) CYCLE 
                   IF ( xice(i,j) .GT. 200.0 ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                      num_seaice_changes = num_seaice_changes + 1
                   END IF
                END DO
@@ -334,8 +407,13 @@ CONTAINS
                        ( ( tsk_old(i,j) .LT. 170 ) .OR. ( tsk_old(i,j) .GT. 400 ) ) )THEN
                      print *,'TSK woes in seaice post, i,j=',i,j,'  tsk = ',tsk(i,j), tsk_old(i,j)
                      CALL wrf_error_fatal ( 'TSK is unrealistic, problems for seaice post')
+#ifdef BPRC_SI_TEMPERATURE
+! only xice, not tsk, used for sea ice setting.
+                  ELSE IF ( xice(i,j) .GE. xice_threshold ) THEN
+#else
                   ELSE IF ( ( xice(i,j) .GE. xice_threshold ) .OR. &
                        ( ( landmask(i,j) .LT. 0.5 ) .AND. ( tsk(i,j) .LT. seaice_threshold ) ) ) THEN
+#endif
                        IF ( FRACTIONAL_SEAICE == 0 ) THEN
                           xice(i,j) = 1.0
                        ELSE
@@ -391,6 +469,13 @@ CONTAINS
                      END DO
                   ELSE IF ( xice(i,j) .LT. xice_threshold ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                   END IF
                END DO
             END DO
@@ -3111,6 +3196,11 @@ CONTAINS
    SUBROUTINE adjust_for_seaice_pre ( xice , landmask , tsk , ivgtyp , vegcat , lu_index , &
                                       xland , landusef , isltyp , soilcat , soilctop , &
                                       soilcbot , tmn , &
+#ifdef BPRC_MODS
+! bai ========================================================================20141125
+                                      icedepth , snowsi , albsi, &
+! ====================================================================================
+#endif
                                       seaice_threshold , &
                                       fractional_seaice, &
                                       num_veg_cat , num_soil_top_cat , num_soil_bot_cat , &
@@ -3134,6 +3224,11 @@ CONTAINS
       INTEGER , DIMENSION(ims:ime,jms:jme), INTENT(OUT) :: isltyp , ivgtyp
       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: landmask , xice , tsk , lu_index , &
                                                            vegcat, xland , soilcat , tmn
+#ifdef BPRC_MODS
+! bai ============================================================================20141125
+      REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: icedepth , snowsi , albsi
+! ========================================================================================
+#endif
       REAL , INTENT(IN) :: seaice_threshold
 
       INTEGER :: i , j , num_seaice_changes , loop
@@ -3157,6 +3252,13 @@ CONTAINS
                DO i = its , MIN(ide-1,ite)
                   IF ( xice(i,j) .GT. 200.0 ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                      num_seaice_changes = num_seaice_changes + 1
                   END IF
                END DO
@@ -3198,6 +3300,13 @@ CONTAINS
                      soilcbot(i,isltyp(i,j),j)=1.
                   ELSE
                      xice(i,j) = 0.0
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                   END IF
                END DO
             END DO
@@ -3224,6 +3333,11 @@ CONTAINS
                                       num_soil_layers , &
                                       iswater , isice , &
                                       scheme , &
+#ifdef BPRC_MODS
+! bai ========================================================================20141125
+                                      icedepth , snowsi , albsi, &
+! ====================================================================================
+#endif
                                       ids , ide , jds , jde , kds , kde , &
                                       ims , ime , jms , jme , kms , kme , &
                                       its , ite , jts , jte , kts , kte )
@@ -3244,6 +3358,11 @@ CONTAINS
       INTEGER , DIMENSION(ims:ime,jms:jme), INTENT(OUT) :: isltyp , ivgtyp
       REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: landmask , xice , tsk , lu_index , &
                                                            vegcat, xland , soilcat , tmn
+#ifdef BPRC_MODS
+! bai ============================================================================20141125
+      REAL , DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: icedepth , snowsi , albsi
+! ========================================================================================
+#endif
       REAL , INTENT(IN) :: seaice_threshold
       REAL :: total_depth , mid_point_depth
 
@@ -3268,6 +3387,13 @@ CONTAINS
                DO i = its , MIN(ide-1,ite)
                   IF ( xice(i,j) .GT. 200.0 ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                      num_seaice_changes = num_seaice_changes + 1
                   END IF
                END DO
@@ -3322,6 +3448,13 @@ CONTAINS
                      END DO
                   ELSE
                      xice(i,j) = 0.0
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                   END IF
                END DO
             END DO
@@ -3336,6 +3469,13 @@ CONTAINS
                DO i = its , MIN(ide-1,ite)
                   IF ( xice(i,j) .GT. 200.0 ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                      num_seaice_changes = num_seaice_changes + 1
                   END IF
                END DO
@@ -3396,6 +3536,13 @@ CONTAINS
                      END DO
                   ELSE IF ( xice(i,j) .LT. xice_threshold ) THEN
                      xice(i,j) = 0.
+#ifdef BPRC_MODS
+! bai ==============================================================20141125
+                     icedepth(i,j) = 0.
+                     snowsi(i,j) = 0.
+                     albsi(i,j)  = 0.
+!===========================================================================
+#endif
                   END IF
                END DO
             END DO

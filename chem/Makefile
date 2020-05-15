@@ -67,9 +67,12 @@ MODULES =                                 \
         module_wetdep_ls.o                \
         module_zero_plumegen_coms.o       \
         module_vash_settling.o            \
+        module_mosaic_settling.o          \
         module_chem_plumerise_scalar.o    \
         module_dep_simple.o               \
         module_gocart_dmsemis.o           \
+        module_mosaic_dmsemis.o            \
+        module_nightingale_dmsemis.o      \
         module_gocart_aerosols.o          \
         module_gocart_dust.o              \
         module_gocart_dust_afwa.o         \
@@ -125,7 +128,7 @@ MODULES =                                 \
         module_input_tracer.o             \
 	module_lightning_nox_driver.o     \
 	module_lightning_nox_ott.o        \
-	module_lightning_nox_decaria.o    \
+	module_lightning_nox_decaria_cup.o    \
         module_mixactivate_wrappers.o     \
         module_mosaic_driver.o            \
         module_optical_averaging.o        \

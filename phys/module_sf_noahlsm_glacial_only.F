@@ -1,4 +1,7 @@
 MODULE module_sf_noahlsm_glacial_only
+#define BPRC_MODS
+!!#define ICEZO_SMALL
+!!#define ALTERNATE_SFCT
   USE module_model_constants
   USE module_sf_noahlsm, ONLY : RD, SIGMA, CPH2O, CPICE, LSUBF, EMISSI_S, ROSR12
   USE module_sf_noahlsm, ONLY : LVCOEF_DATA
@@ -54,6 +57,9 @@ CONTAINS
 !  H  HISTORY (STATE) VARIABLES
 !  O  OUTPUT VARIABLES
 !  D  DIAGNOSTIC OUTPUT
+!!#ifdefine BPRC_MODS
+!  K  BPRC MODS
+!!#endif
 ! ----------------------------------------------------------------------
 ! 1. CONFIGURATION INFORMATION (C):
 ! ----------------------------------------------------------------------
@@ -265,6 +271,9 @@ CONTAINS
 ! ----------------------------------------------------------------------
        IF ( SNCOVR .GT. 0.99 ) THEN
           IF ( STC(1) .LT. (TFREEZ - 5.) ) SNDENS = 0.2
+#ifdef BPRC_MODS
+          SNDENS = 0.35   ! Inspired by Yen (1981) Antarctic snow density
+#endif
           IF ( SNOWNG .AND. (T1.LT.273.) .AND. (SFCTMP.LT.273.) ) SNDENS=0.2
        ENDIF
 
@@ -314,9 +323,15 @@ CONTAINS
 ! OF SURFACE MEDIUMS, DF1 ABOVE, AND SKIN TEMPERATURE AND TOP
 ! MID-LAYER SOIL TEMPERATURE
 ! ----------------------------------------------------------------------
+#ifdef BPRC_MODS
+    IF ( DTOT .GT. 4.*DSOIL ) then
+       DTOT = 4.*DSOIL
+    ENDIF
+#else
     IF ( DTOT .GT. 2.*DSOIL ) then
        DTOT = 2.*DSOIL
     ENDIF
+#endif
     SSOIL = DF1 * ( T1 - STC(1) ) / DTOT
 
 ! ----------------------------------------------------------------------
@@ -325,7 +340,13 @@ CONTAINS
 ! ----------------------------------------------------------------------
 
     CALL SNOWZ0 (Z0,Z0BRD,SNOWH)
-
+#ifdef ICEZO_SMALL
+!
+! kmh 2007/07/09 set permanent land ice surface roughness to 0.0001 m
+!
+    Z0 = 0.0001
+    Z0BRD = 0.0001
+#endif
 ! ----------------------------------------------------------------------
 ! CALCULATE TOTAL DOWNWARD RADIATION (SOLAR PLUS LONGWAVE) NEEDED IN
 ! PENMAN EP SUBROUTINE THAT FOLLOWS
@@ -871,6 +892,10 @@ CONTAINS
          &                   ETP3,ETANRG,EX,                     &
          &                   FRCSNO,FRCSOI,PRCP1,QSAT,RSNOW,SEH, &
          &                   SNCOND,T12,T12A,T12B,T14,YY,ZZ1
+#ifdef ALTERNATE_SFCT
+    REAL                  :: T16
+    INTEGER               :: IT16
+#endif
 
     REAL, PARAMETER       :: ESDMIN = 1.E-6, LSUBC = 2.501000E+6,     &
          &                   LSUBS = 2.83E+6, TFREEZ = 273.15,        &
@@ -942,12 +967,41 @@ CONTAINS
 ! ----------------------------------------------------------------------
     DSOIL = - (0.5 * ZSOIL (1))
     DTOT = SNOWH + DSOIL
+#ifdef BPRC_MODS
+    IF ( DTOT .GT. 4.*DSOIL ) then
+       DTOT = 4.*DSOIL
+    ENDIF
+#endif
     DENOM = 1.0+ DF1 / (DTOT * RR * RCH)
     T12A = ( (FDOWN - FLX1- FLX2- EMISSI * SIGMA * T24)/ RCH                    &
          + TH2- SFCTMP - ETANRG / RCH ) / RR
     T12B = DF1 * STC (1) / (DTOT * RR * RCH)
 
     T12 = (SFCTMP + T12A + T12B) / DENOM
+#ifdef ALTERNATE_SFCT
+!
+!  kmh 12/15/2005 Insert new skin temperature calculation based upon Surface_Energy_Balance = 0
+!  kmh 09/03/2006 Modify for iteration
+!
+     T16 = (FDOWN - FLX1 - FLX2 - ( EMISSI*SIGMA * (T1**4) )            &
+          - ETANRG + DF1*STC(1)/DTOT  + RCH*TH2) / (DF1/DTOT  + RCH)
+!
+! kmh put additional checks 2007/08/05
+!
+     if ( T16 .gt. 274. ) T16 = 274.
+     if ( T16 .gt. (STC(1) + 22.) ) T16 = STC(1) + 22.
+     if ( T16 .lt. (STC(1) - 22.) ) T16 = STC(1) - 22.
+!
+!KWM Use Newton's Method:
+     do IT16=1,5
+!
+        T16 = T16 - ( (FDOWN - FLX1 - FLX2 - ( EMISSI*SIGMA * (T16**4) )       &
+            - ETANRG + DF1*STC(1)/DTOT + RCH*TH2) / (DF1/DTOT + RCH) - T16 ) / &
+              ((-4.*EMISSI*SIGMA*T16**3) / (DF1/DTOT+RCH) - 1.0)
+     enddo
+    IF (T16 <=  TFREEZ) THEN
+         T1 = T16
+#else
     IF (T12 <=  TFREEZ) THEN
 ! ----------------------------------------------------------------------
 ! SUB-FREEZING BLOCK
@@ -963,6 +1017,7 @@ CONTAINS
 ! TO ZERO.
 ! ----------------------------------------------------------------------
        T1 = T12
+#endif
        SSOIL = DF1 * (T1- STC (1)) / DTOT
        SNEQV = MAX(0.0, SNEQV-ESNOW2)
        FLX3 = 0.0
@@ -985,9 +1040,15 @@ CONTAINS
 ! UPDATE SOIL HEAT FLUX (S) USING NEW SKIN TEMPERATURE (T1)
 ! ----------------------------------------------------------------------
        T1 = TFREEZ
+#ifdef BPRC_MODS
+       IF ( DTOT .GT. 4.*DSOIL ) then
+          DTOT = 4.*DSOIL
+       ENDIF
+#else
        IF ( DTOT .GT. 2.0*DSOIL ) THEN
           DTOT = 2.0*DSOIL
        ENDIF
+#endif
        SSOIL = DF1 * (T1- STC (1)) / DTOT
        IF (SNEQV-ESNOW2 <= ESDMIN) THEN
           SNEQV = 0.0
@@ -1058,6 +1119,10 @@ CONTAINS
        SNEQV = 0.10
        SNOWH = 0.50
 !KWM???? SNDENS =
+#ifdef BPRC_MODS
+       SNDENS = 0.35   ! Inspired by Yen (1981) Antarctic snow density
+       SNOWH = SNEQV / SNDENS
+#endif
 !KWM???? SNCOND =
     ENDIF
 ! ----------------------------------------------------------------------

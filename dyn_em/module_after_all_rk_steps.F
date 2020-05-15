@@ -162,6 +162,7 @@ CONTAINS
                                 imsy, imey, jmsy, jmey, kmsy, kmey,  &
                                 ipsy, ipey, jpsy, jpey, kpsy, kpey   )
 
+      CALL wrf_debug ( 100 , '--> END OF CALLING DIAGNOSTICS DRIVER' )
 
    END SUBROUTINE after_all_rk_steps
 

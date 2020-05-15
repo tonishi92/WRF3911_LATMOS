@@ -17,7 +17,16 @@
 #endif
 
 !-------------------------------------------------------------------
-
+!
+!lm Louis Marelle 2016/5/17: Add lightning parameterization for KF-CuP cumuli
+!
+!lm 2015/09: Now initialzing aerosol optical properties without BC and without
+!            SO4 for the radiative effect calculations
+!lm 2015/09: changed the call to chemics_init to include a time step for the
+!            radiative effect calculations
+!lm 2015/07: changed the call to chemics_init in order to set the accumulated bc
+!deposition output to zero at the beginning of the sim.
+!
    SUBROUTINE start_domain_em ( grid, allowed_to_read &
 ! Actual arguments generated from Registry
 # include "dummy_new_args.inc"
@@ -1318,6 +1327,9 @@ endif
                         ,lightning_start_seconds=config_flags%lightning_start_seconds             &
                         ,iccg_prescribed_num=config_flags%iccg_prescribed_num                     &
                         ,iccg_prescribed_den=config_flags%iccg_prescribed_den                     &
+!lm add this in order to prevent using lightning param with KFCUP cumuli if iccg_method=/=3
+                        ,iccg_method=config_flags%iccg_method                                     &
+!lm 
                         ,cellcount_method=config_flags%cellcount_method                           &
                     ! Order dependent args for domain, mem, and tile dims
                         ,ids=ids, ide=ide, jds=jds, jde=jde, kds=kds, kde=kde             &
@@ -1785,8 +1797,12 @@ endif
          enddo
 
          CALL chem_init (grid%id,chem,emis_ant,scalar,grid%dt,grid%bioemdt,grid%photdt,     &
-                         grid%chemdt,                                       &
-                         grid%stepbioe,grid%stepphot,grid%stepchem,grid%stepfirepl,      &
+!lm                         grid%chemdt,                                       &
+!lm                         grid%stepbioe,grid%stepphot,grid%stepchem,grid%stepfirepl,      &
+                         grid%chemdt,grid%radeffectdt,                                      &
+                         grid%stepbioe,grid%stepphot,grid%stepchem,grid%stepradeffect,      &
+                         grid%stepfirepl,                                                   &
+!lm
                          grid%plumerisefire_frq,z_at_w,grid%xlat,grid%xlong,g,           &
                          grid%aerwrf,config_flags,grid,            &
                          grid%alt,grid%t_1,grid%p,convfac,grid%ttday,grid%tcosz,         &
@@ -1794,6 +1810,14 @@ endif
                          grid%tauaer1,grid%tauaer2,grid%tauaer3,grid%tauaer4,                   &
                          grid%gaer1,grid%gaer2,grid%gaer3,grid%gaer4,                           &
                          grid%waer1,grid%waer2,grid%waer3,grid%waer4,                           &
+!lm
+                         grid%tauaer1_no_bc,grid%tauaer2_no_bc,grid%tauaer3_no_bc,grid%tauaer4_no_bc, &
+                         grid%gaer1_no_bc,grid%gaer2_no_bc,grid%gaer3_no_bc,grid%gaer4_no_bc, &
+                         grid%waer1_no_bc,grid%waer2_no_bc,grid%waer3_no_bc,grid%waer4_no_bc, &
+                         grid%tauaer1_no_so4,grid%tauaer2_no_so4,grid%tauaer3_no_so4,grid%tauaer4_no_so4, &
+                         grid%gaer1_no_so4,grid%gaer2_no_so4,grid%gaer3_no_so4,grid%gaer4_no_so4, &
+                         grid%waer1_no_so4,grid%waer2_no_so4,grid%waer3_no_so4,grid%waer4_no_so4, &
+!lm
                          grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,     &
                          grid%extaerlw1,grid%extaerlw2,grid%extaerlw3,grid%extaerlw4,           &
                          grid%extaerlw5,grid%extaerlw6,grid%extaerlw7,grid%extaerlw8,           &
@@ -1806,6 +1830,11 @@ endif
                          grid%dgnum4d, grid%dgnumwet4d, grid%dgnum_a1, grid%dgnum_a2,           & 
                          grid%dgnum_a3, grid%dgnumwet_a1, grid%dgnumwet_a2, grid%dgnumwet_a3,   &
                          grid%pm2_5_dry,grid%pm2_5_water,grid%pm2_5_dry_ec,                &
+!lm
+!TO2
+!                         grid%dry_dep_bc, grid%wet_dep_bc,                                 &
+!TO2
+!lm
                          grid%tsoa,grid%asoa,grid%bsoa,                                    &
                          grid%last_chem_time_year,grid%last_chem_time_month,               &
                          grid%last_chem_time_day,grid%last_chem_time_hour,                 &

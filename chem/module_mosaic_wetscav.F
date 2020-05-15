@@ -1,13 +1,21 @@
 MODULE module_mosaic_wetscav
 
 CONTAINS
-
+!lm 2015/07: BC deposited by wet scavenging is now accumulated in the 
+!            diagnosis variable wet_dep_bc
+!
 !===========================================================================
 !===========================================================================
    subroutine wetscav_cbmz_mosaic (id,ktau,dtstep,ktauc,config_flags,      &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
 	       qlsink,precr,preci,precs,precg,qsrflx,                      &
 	       gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                                    &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -56,6 +64,14 @@ CONTAINS
                                                     rho_phy,cldfra
    REAL, DIMENSION( ims:ime, jms:jme, num_chem ),          &
          INTENT(OUT ) ::                                qsrflx ! column change due to scavening
+!!lm
+!   REAL, DIMENSION( ims:ime, jms:jme),          &
+!         INTENT(OUT ) :: wet_dep_bc
+!!lm
+!ND add all the species for wet deposition
+   REAL, DIMENSION( ims:ime, 1, jms:jme, num_chem ),          &
+         INTENT(OUT ) :: wetd_ct
+!ND
 
    call wetscav (id,ktau,dtstep,ktauc,config_flags,                      &
         dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,             &
@@ -67,6 +83,12 @@ CONTAINS
         volumcen_sect, volumlo_sect, volumhi_sect,                       &
         waterptr_aer, dens_water_aer,                                    &
         scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow, &
+!!lm
+!        wet_dep_bc,                                                      &
+!!lm
+!ND add all the species for wet deposition
+       wetd_ct,                                                          &
+!ND
         ids,ide, jds,jde, kds,kde,                                       &
         ims,ime, jms,jme, kms,kme,                                       &
         its,ite, jts,jte, kts,kte                                        )
@@ -80,6 +102,12 @@ CONTAINS
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
          qlsink,precr,preci,precs,precg,qsrflx,                      &
          gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                                    &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -128,6 +156,14 @@ CONTAINS
                                                     rho_phy,cldfra
    REAL, DIMENSION( ims:ime, jms:jme, num_chem ),          &
          INTENT(OUT ) ::                                qsrflx ! column change due to scavening
+!!lm
+!   REAL, DIMENSION( ims:ime, jms:jme),          &
+!         INTENT(OUT ) :: wet_dep_bc
+!!lm
+!ND add all the species for wet deposition
+   REAL, DIMENSION( ims:ime, 1, jms:jme, num_chem ),          &
+         INTENT(OUT ) :: wetd_ct
+!ND
 
    call wetscav (id,ktau,dtstep,ktauc,config_flags,                      &
         dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,             &
@@ -139,6 +175,12 @@ CONTAINS
         volumcen_sect, volumlo_sect, volumhi_sect,                       &
         waterptr_aer, dens_water_aer,                                    &
         scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow, &
+!!lm
+!        wet_dep_bc,                                                      &
+!!lm
+!ND add all the species for wet deposition
+       wetd_ct,                                                          &
+!ND
         ids,ide, jds,jde, kds,kde,                                       &
         ims,ime, jms,jme, kms,kme,                                       &
         its,ite, jts,jte, kts,kte                                        )
@@ -157,6 +199,12 @@ CONTAINS
         volumcen_sect, volumlo_sect, volumhi_sect,                       &
         waterptr_aer, dens_water_aer,                                    &
         scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow, &
+!!lm
+!        wet_dep_bc,                                                      &
+!!lm
+!ND add all the species for wet deposition
+       wetd_ct,                                                          &
+!ND
         ids,ide, jds,jde, kds,kde,                                       &
         ims,ime, jms,jme, kms,kme,                                       &
         its,ite, jts,jte, kts,kte                                        )
@@ -205,6 +253,14 @@ CONTAINS
                                                     t8w,p8w,        &
                              qlsink,precr,preci,precs,precg,        &
                                              rho_phy,cldfra
+!!lm
+!   REAL, DIMENSION( ims:ime, jms:jme),          &
+!         INTENT(OUT ) :: wet_dep_bc
+!!lm
+!ND add all the species for wet deposition
+   REAL, DIMENSION( ims:ime, 1, jms:jme, num_chem ),          &
+         INTENT(OUT ) ::  wetd_ct
+!ND
    integer, intent(in) :: maxd_atype, maxd_asize, maxd_acomp, maxd_aphase
    integer, intent(in) :: ai_phase, cw_phase
    integer, intent(in) :: ntype_aer
@@ -468,6 +524,193 @@ CONTAINS
  6000    continue
       end if
    end do
+
+!!lm wet_dep_bc should be in µg m-2
+!  do j=jts,jte
+!     do i=its,ite
+!                 wet_dep_bc(i,j) = wet_dep_bc(i,j)+ qsrflx(i,j,p_bc_a01) + qsrflx(i,j,p_bc_cw01) + &
+!                                     qsrflx(i,j,p_bc_a02) + qsrflx(i,j,p_bc_cw02) + &
+!                                     qsrflx(i,j,p_bc_a03) + qsrflx(i,j,p_bc_cw03) + &
+!                                     qsrflx(i,j,p_bc_a04) + qsrflx(i,j,p_bc_cw04) + &
+!                                     qsrflx(i,j,p_bc_a05) + qsrflx(i,j,p_bc_cw05) + &
+!                                     qsrflx(i,j,p_bc_a06) + qsrflx(i,j,p_bc_cw06) + &
+!                                     qsrflx(i,j,p_bc_a07) + qsrflx(i,j,p_bc_cw07) + &
+!                                     qsrflx(i,j,p_bc_a08) + qsrflx(i,j,p_bc_cw08)
+!        enddo
+!  enddo
+!!lm
+!ND IC added so4 and no3 deposition
+  if ( config_flags%diagnostic_chem == DEPOUT1 .and. &
+       ( config_flags%chem_opt == SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP )) then
+     do j=jts,jte
+        do i=its,ite
+!ND Sloppily add wet deposition for all speceis
+           wetd_ct(i,1,j,p_wetd_h2o2)     =  wetd_ct(i,1,j,p_wetd_h2o2)     + 0.001*qsrflx(i,j,p_h2o2)
+           wetd_ct(i,1,j,p_wetd_hno3)     =  wetd_ct(i,1,j,p_wetd_hno3)     + 0.001*qsrflx(i,j,p_hno3)
+           wetd_ct(i,1,j,p_wetd_so2)      =  wetd_ct(i,1,j,p_wetd_so2)      + 0.001*qsrflx(i,j,p_so2)
+           wetd_ct(i,1,j,p_wetd_h2so4)    =  wetd_ct(i,1,j,p_wetd_h2so4)    + 0.001*qsrflx(i,j,p_h2so4)
+           wetd_ct(i,1,j,p_wetd_nh3)      =  wetd_ct(i,1,j,p_wetd_nh3)      + 0.001*qsrflx(i,j,p_nh3)
+           wetd_ct(i,1,j,p_wetd_hcl)      =  wetd_ct(i,1,j,p_wetd_hcl)      + 0.001*qsrflx(i,j,p_hcl)
+           wetd_ct(i,1,j,p_wetd_hcho)     =  wetd_ct(i,1,j,p_wetd_hcho)     + 0.001*qsrflx(i,j,p_hcho)
+           wetd_ct(i,1,j,p_wetd_hcooh)    =  wetd_ct(i,1,j,p_wetd_hcooh)    + 0.001*qsrflx(i,j,p_hcooh)
+!ND AEROSOL
+           wetd_ct(i,1,j,p_wetd_p_so4)     = wetd_ct(i,1,j,p_wetd_p_so4) + &
+                            qsrflx(i,j,p_so4_a01)+qsrflx(i,j,p_so4_cw01)+ &
+                            qsrflx(i,j,p_so4_a02)+qsrflx(i,j,p_so4_cw02)+ &
+                            qsrflx(i,j,p_so4_a03)+qsrflx(i,j,p_so4_cw03)+ &
+                            qsrflx(i,j,p_so4_a04)+qsrflx(i,j,p_so4_cw04)+ &
+                            qsrflx(i,j,p_so4_a05)+qsrflx(i,j,p_so4_cw05)+ &
+                            qsrflx(i,j,p_so4_a06)+qsrflx(i,j,p_so4_cw06)+ &
+                            qsrflx(i,j,p_so4_a07)+qsrflx(i,j,p_so4_cw07)+ &
+                            qsrflx(i,j,p_so4_a08)+qsrflx(i,j,p_so4_cw08)
+           wetd_ct(i,1,j,p_wetd_p_no3)     = wetd_ct(i,1,j,p_wetd_p_no3) + &
+                            qsrflx(i,j,p_no3_a01)+qsrflx(i,j,p_no3_cw01)+ &
+                            qsrflx(i,j,p_no3_a02)+qsrflx(i,j,p_no3_cw02)+ &
+                            qsrflx(i,j,p_no3_a03)+qsrflx(i,j,p_no3_cw03)+ &
+                            qsrflx(i,j,p_no3_a04)+qsrflx(i,j,p_no3_cw04)+ &
+                            qsrflx(i,j,p_no3_a05)+qsrflx(i,j,p_no3_cw05)+ &
+                            qsrflx(i,j,p_no3_a06)+qsrflx(i,j,p_no3_cw06)+ &
+                            qsrflx(i,j,p_no3_a07)+qsrflx(i,j,p_no3_cw07)+ &
+                            qsrflx(i,j,p_no3_a08)+qsrflx(i,j,p_no3_cw08)
+           wetd_ct(i,1,j,p_wetd_p_cl)      = wetd_ct(i,1,j,p_wetd_p_cl) + &
+                            qsrflx(i,j,p_cl_a01)+qsrflx(i,j,p_cl_cw01)+ &
+                            qsrflx(i,j,p_cl_a02)+qsrflx(i,j,p_cl_cw02)+ &
+                            qsrflx(i,j,p_cl_a03)+qsrflx(i,j,p_cl_cw03)+ &
+                            qsrflx(i,j,p_cl_a04)+qsrflx(i,j,p_cl_cw04)+ &
+                            qsrflx(i,j,p_cl_a05)+qsrflx(i,j,p_cl_cw05)+ &
+                            qsrflx(i,j,p_cl_a06)+qsrflx(i,j,p_cl_cw06)+ &
+                            qsrflx(i,j,p_cl_a07)+qsrflx(i,j,p_cl_cw07)+ &
+                            qsrflx(i,j,p_cl_a08)+qsrflx(i,j,p_cl_cw08)
+           wetd_ct(i,1,j,p_wetd_p_nh4)     = wetd_ct(i,1,j,p_wetd_p_nh4) + &
+                            qsrflx(i,j,p_nh4_a01)+qsrflx(i,j,p_nh4_cw01)+ &
+                            qsrflx(i,j,p_nh4_a02)+qsrflx(i,j,p_nh4_cw02)+ &
+                            qsrflx(i,j,p_nh4_a03)+qsrflx(i,j,p_nh4_cw03)+ &
+                            qsrflx(i,j,p_nh4_a04)+qsrflx(i,j,p_nh4_cw04)+ &
+                            qsrflx(i,j,p_nh4_a05)+qsrflx(i,j,p_nh4_cw05)+ &
+                            qsrflx(i,j,p_nh4_a06)+qsrflx(i,j,p_nh4_cw06)+ &
+                            qsrflx(i,j,p_nh4_a07)+qsrflx(i,j,p_nh4_cw07)+ &
+                            qsrflx(i,j,p_nh4_a08)+qsrflx(i,j,p_nh4_cw08)
+           wetd_ct(i,1,j,p_wetd_p_na)      = wetd_ct(i,1,j,p_wetd_p_na) + &
+                            qsrflx(i,j,p_na_a01)+qsrflx(i,j,p_na_cw01)+ &
+                            qsrflx(i,j,p_na_a02)+qsrflx(i,j,p_na_cw02)+ &
+                            qsrflx(i,j,p_na_a03)+qsrflx(i,j,p_na_cw03)+ &
+                            qsrflx(i,j,p_na_a04)+qsrflx(i,j,p_na_cw04)+ &
+                            qsrflx(i,j,p_na_a05)+qsrflx(i,j,p_na_cw05)+ &
+                            qsrflx(i,j,p_na_a06)+qsrflx(i,j,p_na_cw06)+ &
+                            qsrflx(i,j,p_na_a07)+qsrflx(i,j,p_na_cw07)+ &
+                            qsrflx(i,j,p_na_a08)+qsrflx(i,j,p_na_cw08)
+           wetd_ct(i,1,j,p_wetd_p_oin)     = wetd_ct(i,1,j,p_wetd_p_oin) + &
+                            qsrflx(i,j,p_oin_a01)+qsrflx(i,j,p_oin_cw01)+ &
+                            qsrflx(i,j,p_oin_a02)+qsrflx(i,j,p_oin_cw02)+ &
+                            qsrflx(i,j,p_oin_a03)+qsrflx(i,j,p_oin_cw03)+ &
+                            qsrflx(i,j,p_oin_a04)+qsrflx(i,j,p_oin_cw04)+ &
+                            qsrflx(i,j,p_oin_a05)+qsrflx(i,j,p_oin_cw05)+ &
+                            qsrflx(i,j,p_oin_a06)+qsrflx(i,j,p_oin_cw06)+ &
+                            qsrflx(i,j,p_oin_a07)+qsrflx(i,j,p_oin_cw07)+ &
+                            qsrflx(i,j,p_oin_a08)+qsrflx(i,j,p_oin_cw08)
+           wetd_ct(i,1,j,p_wetd_p_oc)      = wetd_ct(i,1,j,p_wetd_p_oc) + &
+                            qsrflx(i,j,p_oc_a01)+qsrflx(i,j,p_oc_cw01)+ &
+                            qsrflx(i,j,p_oc_a02)+qsrflx(i,j,p_oc_cw02)+ &
+                            qsrflx(i,j,p_oc_a03)+qsrflx(i,j,p_oc_cw03)+ &
+                            qsrflx(i,j,p_oc_a04)+qsrflx(i,j,p_oc_cw04)+ &
+                            qsrflx(i,j,p_oc_a05)+qsrflx(i,j,p_oc_cw05)+ &
+                            qsrflx(i,j,p_oc_a06)+qsrflx(i,j,p_oc_cw06)+ &
+                            qsrflx(i,j,p_oc_a07)+qsrflx(i,j,p_oc_cw07)+ &
+                            qsrflx(i,j,p_oc_a08)+qsrflx(i,j,p_oc_cw08)
+           wetd_ct(i,1,j,p_wetd_p_bc)      = wetd_ct(i,1,j,p_wetd_p_bc) + &
+                            qsrflx(i,j,p_bc_a01)+qsrflx(i,j,p_bc_cw01)+ &
+                            qsrflx(i,j,p_bc_a02)+qsrflx(i,j,p_bc_cw02)+ &
+                            qsrflx(i,j,p_bc_a03)+qsrflx(i,j,p_bc_cw03)+ &
+                            qsrflx(i,j,p_bc_a04)+qsrflx(i,j,p_bc_cw04)+ &
+                            qsrflx(i,j,p_bc_a05)+qsrflx(i,j,p_bc_cw05)+ &
+                            qsrflx(i,j,p_bc_a06)+qsrflx(i,j,p_bc_cw06)+ &
+                            qsrflx(i,j,p_bc_a07)+qsrflx(i,j,p_bc_cw07)+ &
+                            qsrflx(i,j,p_bc_a08)+qsrflx(i,j,p_bc_cw08)
+           wetd_ct(i,1,j,p_wetd_p_water)   = wetd_ct(i,1,j,p_wetd_p_water) + &
+                            qsrflx(i,j,p_water_a01)+ &
+                            qsrflx(i,j,p_water_a02)+ &
+                            qsrflx(i,j,p_water_a03)+ &
+                            qsrflx(i,j,p_water_a04)+ &
+                            qsrflx(i,j,p_water_a05)+ &
+                            qsrflx(i,j,p_water_a06)+ &
+                            qsrflx(i,j,p_water_a07)+ &
+                            qsrflx(i,j,p_water_a08)
+           wetd_ct(i,1,j,p_wetd_p_ant1_c)  = wetd_ct(i,1,j,p_wetd_p_ant1_c) + &
+                            qsrflx(i,j,p_ant1_c_a01)+qsrflx(i,j,p_ant1_c_cw01)+ &
+                            qsrflx(i,j,p_ant1_c_a02)+qsrflx(i,j,p_ant1_c_cw02)+ &
+                            qsrflx(i,j,p_ant1_c_a03)+qsrflx(i,j,p_ant1_c_cw03)+ &
+                            qsrflx(i,j,p_ant1_c_a04)+qsrflx(i,j,p_ant1_c_cw04)+ &
+                            qsrflx(i,j,p_ant1_c_a05)+qsrflx(i,j,p_ant1_c_cw05)+ &
+                            qsrflx(i,j,p_ant1_c_a06)+qsrflx(i,j,p_ant1_c_cw06)+ &
+                            qsrflx(i,j,p_ant1_c_a07)+qsrflx(i,j,p_ant1_c_cw07)+ &
+                            qsrflx(i,j,p_ant1_c_a08)+qsrflx(i,j,p_ant1_c_cw08)
+!TO2           wetd_ct(i,1,j,p_wetd_p_ant2_c)  = wetd_ct(i,1,j,p_wetd_p_ant2_c) + &
+!TO2                            qsrflx(i,j,p_ant2_c_a01)+qsrflx(i,j,p_ant2_c_cw01)+ &
+!TO2                            qsrflx(i,j,p_ant2_c_a02)+qsrflx(i,j,p_ant2_c_cw02)+ &
+!TO2                            qsrflx(i,j,p_ant2_c_a03)+qsrflx(i,j,p_ant2_c_cw03)+ &
+!TO2                            qsrflx(i,j,p_ant2_c_a04)+qsrflx(i,j,p_ant2_c_cw04)+ &
+!TO2                            qsrflx(i,j,p_ant2_c_a05)+qsrflx(i,j,p_ant2_c_cw05)+ &
+!TO2                            qsrflx(i,j,p_ant2_c_a06)+qsrflx(i,j,p_ant2_c_cw06)+ &
+!TO2                            qsrflx(i,j,p_ant2_c_a07)+qsrflx(i,j,p_ant2_c_cw07)+ &
+!TO2                            qsrflx(i,j,p_ant2_c_a08)+qsrflx(i,j,p_ant2_c_cw08)
+!TO2           wetd_ct(i,1,j,p_wetd_p_ant3_c)  = wetd_ct(i,1,j,p_wetd_p_ant3_c) + &
+!TO2                            qsrflx(i,j,p_ant3_c_a01)+qsrflx(i,j,p_ant3_c_cw01)+ &
+!TO2                            qsrflx(i,j,p_ant3_c_a02)+qsrflx(i,j,p_ant3_c_cw02)+ &
+!TO2                            qsrflx(i,j,p_ant3_c_a03)+qsrflx(i,j,p_ant3_c_cw03)+ &
+!TO2                            qsrflx(i,j,p_ant3_c_a04)+qsrflx(i,j,p_ant3_c_cw04)+ &
+!TO2                            qsrflx(i,j,p_ant3_c_a05)+qsrflx(i,j,p_ant3_c_cw05)+ &
+!TO2                            qsrflx(i,j,p_ant3_c_a06)+qsrflx(i,j,p_ant3_c_cw06)+ &
+!TO2                            qsrflx(i,j,p_ant3_c_a07)+qsrflx(i,j,p_ant3_c_cw07)+ &
+!TO2                            qsrflx(i,j,p_ant3_c_a08)+qsrflx(i,j,p_ant3_c_cw08)
+!TO2           wetd_ct(i,1,j,p_wetd_p_ant4_c)  = wetd_ct(i,1,j,p_wetd_p_ant4_c) + &
+!TO2                            qsrflx(i,j,p_ant4_c_a01)+qsrflx(i,j,p_ant4_c_cw01)+ &
+!TO2                            qsrflx(i,j,p_ant4_c_a02)+qsrflx(i,j,p_ant4_c_cw02)+ &
+!TO2                            qsrflx(i,j,p_ant4_c_a03)+qsrflx(i,j,p_ant4_c_cw03)+ &
+!TO2                            qsrflx(i,j,p_ant4_c_a04)+qsrflx(i,j,p_ant4_c_cw04)+ &
+!TO2                            qsrflx(i,j,p_ant4_c_a05)+qsrflx(i,j,p_ant4_c_cw05)+ &
+!TO2                            qsrflx(i,j,p_ant4_c_a06)+qsrflx(i,j,p_ant4_c_cw06)+ &
+!TO2                            qsrflx(i,j,p_ant4_c_a07)+qsrflx(i,j,p_ant4_c_cw07)+ &
+!TO2                            qsrflx(i,j,p_ant4_c_a08)+qsrflx(i,j,p_ant4_c_cw08)
+           wetd_ct(i,1,j,p_wetd_p_biog1_c) = wetd_ct(i,1,j,p_wetd_p_biog1_c) + &
+                            qsrflx(i,j,p_biog1_c_a01)+qsrflx(i,j,p_biog1_c_cw01)+ &
+                            qsrflx(i,j,p_biog1_c_a02)+qsrflx(i,j,p_biog1_c_cw02)+ &
+                            qsrflx(i,j,p_biog1_c_a03)+qsrflx(i,j,p_biog1_c_cw03)+ &
+                            qsrflx(i,j,p_biog1_c_a04)+qsrflx(i,j,p_biog1_c_cw04)+ &
+                            qsrflx(i,j,p_biog1_c_a05)+qsrflx(i,j,p_biog1_c_cw05)+ &
+                            qsrflx(i,j,p_biog1_c_a06)+qsrflx(i,j,p_biog1_c_cw06)+ &
+                            qsrflx(i,j,p_biog1_c_a07)+qsrflx(i,j,p_biog1_c_cw07)+ &
+                            qsrflx(i,j,p_biog1_c_a08)+qsrflx(i,j,p_biog1_c_cw08)
+!TO2           wetd_ct(i,1,j,p_wetd_p_biog2_c) = wetd_ct(i,1,j,p_wetd_p_biog2_c) + &
+!TO2                            qsrflx(i,j,p_biog2_c_a01)+qsrflx(i,j,p_biog2_c_cw01)+ &
+!TO2                            qsrflx(i,j,p_biog2_c_a02)+qsrflx(i,j,p_biog2_c_cw02)+ &
+!TO2                            qsrflx(i,j,p_biog2_c_a03)+qsrflx(i,j,p_biog2_c_cw03)+ &
+!TO2                            qsrflx(i,j,p_biog2_c_a04)+qsrflx(i,j,p_biog2_c_cw04)+ &
+!TO2                            qsrflx(i,j,p_biog2_c_a05)+qsrflx(i,j,p_biog2_c_cw05)+ &
+!TO2                            qsrflx(i,j,p_biog2_c_a06)+qsrflx(i,j,p_biog2_c_cw06)+ &
+!TO2                            qsrflx(i,j,p_biog2_c_a07)+qsrflx(i,j,p_biog2_c_cw07)+ &
+!TO2                            qsrflx(i,j,p_biog2_c_a08)+qsrflx(i,j,p_biog2_c_cw08)
+!TO2           wetd_ct(i,1,j,p_wetd_p_biog3_c) = wetd_ct(i,1,j,p_wetd_p_biog3_c) + &
+!TO2                            qsrflx(i,j,p_biog3_c_a01)+qsrflx(i,j,p_biog3_c_cw01)+ &
+!TO2                            qsrflx(i,j,p_biog3_c_a02)+qsrflx(i,j,p_biog3_c_cw02)+ &
+!TO2                            qsrflx(i,j,p_biog3_c_a03)+qsrflx(i,j,p_biog3_c_cw03)+ &
+!TO2                            qsrflx(i,j,p_biog3_c_a04)+qsrflx(i,j,p_biog3_c_cw04)+ &
+!TO2                            qsrflx(i,j,p_biog3_c_a05)+qsrflx(i,j,p_biog3_c_cw05)+ &
+!TO2                            qsrflx(i,j,p_biog3_c_a06)+qsrflx(i,j,p_biog3_c_cw06)+ &
+!TO2                            qsrflx(i,j,p_biog3_c_a07)+qsrflx(i,j,p_biog3_c_cw07)+ &
+!TO2                            qsrflx(i,j,p_biog3_c_a08)+qsrflx(i,j,p_biog3_c_cw08)
+!TO2           wetd_ct(i,1,j,p_wetd_p_biog4_c) = wetd_ct(i,1,j,p_wetd_p_biog4_c) + &
+!TO2                            qsrflx(i,j,p_biog4_c_a01)+qsrflx(i,j,p_biog4_c_cw01)+ &
+!TO2                            qsrflx(i,j,p_biog4_c_a02)+qsrflx(i,j,p_biog4_c_cw02)+ &
+!TO2                            qsrflx(i,j,p_biog4_c_a03)+qsrflx(i,j,p_biog4_c_cw03)+ &
+!TO2                            qsrflx(i,j,p_biog4_c_a04)+qsrflx(i,j,p_biog4_c_cw04)+ &
+!TO2                            qsrflx(i,j,p_biog4_c_a05)+qsrflx(i,j,p_biog4_c_cw05)+ &
+!TO2                            qsrflx(i,j,p_biog4_c_a06)+qsrflx(i,j,p_biog4_c_cw06)+ &
+!TO2                            qsrflx(i,j,p_biog4_c_a07)+qsrflx(i,j,p_biog4_c_cw07)+ &
+!TO2                            qsrflx(i,j,p_biog4_c_a08)+qsrflx(i,j,p_biog4_c_cw08)
+       enddo
+     enddo
+  endif
+!ND
 
    end subroutine wetscav
 

@@ -1,4 +1,5 @@
 module module_sf_noah_seaice_drv
+!!#define BPRC_MODS
   use module_sf_noah_seaice
   implicit none
 contains
@@ -210,6 +211,9 @@ contains
           CASE (0)
               ! Use uniform sea-ice thickness.
               SITHICK = SEAICE_THICKNESS_DEFAULT
+#ifdef BPRC_MODS
+              ICEDEPTH(I,J) = SEAICE_THICKNESS_DEFAULT
+#endif
           CASE (1)
               ! Use the sea-ice as read in from the input files.
               ! Limit the to between 0.10 and 10.0 m.
@@ -321,15 +325,15 @@ contains
           ! SR from e.g. Ferrier microphysics
           ! otherwise define from 1st atmos level temperature
 
-          IF (FRPCPN) THEN
-             FFROZP = SR(I,J)
-          ELSE
+!lm see in surface_driver why I commented this          IF (FRPCPN) THEN
+!             FFROZP = SR(I,J)
+!          ELSE
              IF (SFCTMP <=  273.15) THEN
                 FFROZP = 1.0
              ELSE
                 FFROZP = 0.0
              ENDIF
-          ENDIF
+!          ENDIF
 
           ! Sea-ice point has deep-level temperature of about -1.8 C
           TBOT = 271.36

@@ -5,6 +5,10 @@
 !                   Saulo Freitas (CPTEC), and Georg Grell
 !
 !
+!lm Louis Marelle 2016/5/18: Add a new DMS emission scheme based on Nightingale
+!                            et al. (2000), dmsemis_opt = 3
+!lm Louis Marelle 2016/5/9: Add a biomass burning emissions package for CBMZ
+!
 MODULE module_emissions_driver
    IMPLICIT NONE
 CONTAINS
@@ -63,6 +67,9 @@ CONTAINS
          ! stuff for LNOx emissions
          ht, refl_10cm,                                                    &
          ic_flashrate, cg_flashrate,                                       &
+!lm
+         cldfra_cup, htop,                                                 &
+!lm
          ! end stuff for LNOx emissions
          ! stuff for aircraft emissions
          emis_aircraft,                                                    &
@@ -92,6 +99,9 @@ CONTAINS
   USE gocart_seasalt
   USE uoc_dust  
   USE module_dms_emis
+!lm Add a new dms emission option
+  USE module_nightingale_dmsemis, only: nightingale_dmsemis
+!lm
   USE module_mosaic_addemiss
   USE module_add_emis_cptec
   USE module_add_emiss_burn
@@ -329,6 +339,10 @@ CONTAINS
 ! stuff for lightning NOx
      REAL, DIMENSION( ims:ime,          jms:jme ),           INTENT(IN   ) :: ht, ic_flashrate, cg_flashrate
      REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),           INTENT(IN   ) :: refl_10cm
+!lm
+     REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),           INTENT(IN   ) :: cldfra_cup
+     REAL, DIMENSION( ims:ime,          jms:jme ),           INTENT(IN   ) :: htop
+!lm
 ! end stuff for lightning NOx
 !
 ! Local variables...
@@ -621,7 +635,13 @@ CONTAINS
       do_plumerisefire = .false.
       IF ( config_flags%biomass_burn_opt == BIOMASSB_MOZC .OR. &
            config_flags%biomass_burn_opt == BIOMASSB_MOZ  .OR. &
+!lm New biomass burning emission package for SAPRC
+           config_flags%biomass_burn_opt == BIOMASSB_SAPRC .OR. &
+!lm
            config_flags%biomass_burn_opt == BIOMASSB_GHG  .OR. &
+!lm Add a biomass burning emissions package for CBMZ
+           config_flags%biomass_burn_opt == BIOMASSB_CBMZ .OR. &
+!lm
            config_flags%biomass_burn_opt == BIOMASSB ) then
         IF ( ktau==1 ) then
            do_plumerisefire = .true.
@@ -678,6 +698,9 @@ CONTAINS
 !
        call add_emis_burn(id,dtstep,ktau,dz8w,rho_phy,tracer,&
             julday,gmt,xlat,xlong,t_phy,p_phy,                           &
+!lm
+            alt, &
+!lm
             ebu,0,config_flags%tracer_opt,config_flags%biomass_burn_opt,     &
             num_tracer,ids,ide, jds,jde, kds,kde,                                   &
             ims,ime, jms,jme, kms,kme,                                   &
@@ -766,6 +789,16 @@ CONTAINS
          ids,ide, jds,jde, kds,kde,                                        &
          ims,ime, jms,jme, kms,kme,                                        &
          its,ite, jts,jte, kts,kte                                         )
+!lm Add a new DMS emission scheme
+      CASE (DMS_NIGHTINGALE)
+        CALL wrf_debug(15,'Nightingale et al. dms emissions')
+        call nightingale_dmsemis( id, dtstep, dz8w, config_flags,   &
+         u_phy, v_phy, rho_phy, chem,emis_ant,alt,                  &
+         u10, v10, xland, tsk,                                      &
+         ids,ide, jds,jde, kds,kde,                                 &
+         ims,ime, jms,jme, kms,kme,                                 &
+         its,ite, jts,jte, kts,kte                                  )
+!lm
       CASE DEFAULT 
         CALL wrf_debug(15,'no dms emissions')
       END SELECT dms_select
@@ -774,7 +807,12 @@ CONTAINS
 !!! ***********   FIRE AND CHEM ****************************************
 !
     fire_select:  SELECT CASE(config_flags%biomass_burn_opt)
-     CASE (BIOMASSB,BIOMASSB_MOZC,BIOMASSB_MOZ,BIOMASSB_GHG)
+!lm Add a biomass burning emission package for CBMZ
+!     CASE (BIOMASSB,BIOMASSB_CBMZ,BIOMASSB_MOZC,BIOMASSB_MOZ,BIOMASSB_GHG)
+!     CASE (BIOMASSB,BIOMASSB_MOZC,BIOMASSB_MOZ,BIOMASSB_GHG)
+!lm New biomass burning emission package for SAPRC and CBMZ
+     CASE (BIOMASSB,BIOMASSB_CBMZ,BIOMASSB_MOZC,BIOMASSB_MOZ,BIOMASSB_SAPRC,BIOMASSB_GHG)
+!lm
 !      if( do_plumerisefire )then
 !         CALL wrf_debug(15,'fire emissions: calling biomassb')
 !         write(0,*)ktau,stepfirepl
@@ -793,6 +831,9 @@ CONTAINS
        CALL wrf_debug(15,'fire emissions: adding biomassb emissions')
        call add_emis_burn(id,dtstep,ktau,dz8w,rho_phy,chem,&
             julday,gmt,xlat,xlong,t_phy,p_phy,                           &
+!lm 
+            alt, &
+!lm
             ebu,config_flags%chem_opt,0,config_flags%biomass_burn_opt,     &
             num_chem,ids,ide, jds,jde, kds,kde,                                   &
             ims,ime, jms,jme, kms,kme,                                   &
@@ -1013,6 +1054,78 @@ CONTAINS
              end do
           end do
        end do
+!jcr
+   CASE (CHEM_TRACE2)
+       do j=jts,jte
+          do i=its,ite
+             do k=kts,min(config_flags%kemit,kte-ksub)
+                conv = 4.828e-4/rho_phy(i,k,j)*dtstep/(dz8w(i,k,j)*60.)
+                IF(emis_ant(i,k,j,p_e_no).eq.1.0)                        &
+                chem(i,k,j,p_tracer_1)  = chem(i,k,j,p_tracer_1)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.2.0)                        &
+                chem(i,k,j,p_tracer_2)  = chem(i,k,j,p_tracer_2)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.3.0)                        &
+                chem(i,k,j,p_tracer_3)  = chem(i,k,j,p_tracer_3)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.4.0)                        &
+                chem(i,k,j,p_tracer_4)  = chem(i,k,j,p_tracer_4)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.5.0)                        &
+                chem(i,k,j,p_tracer_5)  = chem(i,k,j,p_tracer_5)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.6.0)                        &
+                chem(i,k,j,p_tracer_6)  = chem(i,k,j,p_tracer_6)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.7.0)                        &
+                chem(i,k,j,p_tracer_7)  = chem(i,k,j,p_tracer_7)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.8.0)                        &
+                chem(i,k,j,p_tracer_8)  = chem(i,k,j,p_tracer_8)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.9.0)                        &
+                chem(i,k,j,p_tracer_9)  = chem(i,k,j,p_tracer_9)         &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.10.0)                       &
+                chem(i,k,j,p_tracer_10)  = chem(i,k,j,p_tracer_10)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.11.0)                       &
+                chem(i,k,j,p_tracer_11)  = chem(i,k,j,p_tracer_11)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.12.0)                       &
+                chem(i,k,j,p_tracer_12)  = chem(i,k,j,p_tracer_12)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.13.0)                       &
+                chem(i,k,j,p_tracer_13)  = chem(i,k,j,p_tracer_13)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.14.0)                       &
+                chem(i,k,j,p_tracer_14)  = chem(i,k,j,p_tracer_14)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.15.0)                       &
+                chem(i,k,j,p_tracer_15)  = chem(i,k,j,p_tracer_15)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.16.0)                       &
+                chem(i,k,j,p_tracer_16)  = chem(i,k,j,p_tracer_16)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.17.0)                       &
+                chem(i,k,j,p_tracer_17)  = chem(i,k,j,p_tracer_17)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.18.0)                       &
+                chem(i,k,j,p_tracer_18)  = chem(i,k,j,p_tracer_18)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.19.0)                       &
+                chem(i,k,j,p_tracer_19)  = chem(i,k,j,p_tracer_19)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                IF(emis_ant(i,k,j,p_e_no).eq.20.0)                       &
+                chem(i,k,j,p_tracer_20)  = chem(i,k,j,p_tracer_20)       &
+                     +emis_ant(i,k,j,p_e_co)*conv
+                chem(i,k,j,p_tracer_ens)  = chem(i,k,j,p_tracer_ens)     &
+                     +emis_ant(i,k,j,p_e_co)*conv
+             end do
+          end do
+       end do
+!jcr
 !
     CASE(CO2_TRACER,GHG_TRACER)  ! for ghg_tracer package
 
@@ -1275,28 +1388,28 @@ CONTAINS
                 chem(i,k,j,p_nh3)  = chem(i,k,j,p_nh3)                       &
                      +emis_ant(i,k,j,p_e_nh3)*conv
 
-!Use OM/OC of 1.25 for fossil and OM:OC of 1.57 for biomass
-! O:C=0.06,H:C=1.8, N:C=0.02 for fossil : OM/OC=(16*0.06+12+14*0.02+12)/12=1.25
-!O:C=0.3 H:C=1.8, N:C=0.02 for biomass, OM/OC=1.57 for biomass
-
-         chem(i,k,j,p_pcg1_b_c)  =  chem(i,k,j,p_pcg1_b_c)                        &
-        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*1.17
-        chem(i,k,j,p_pcg2_b_c)  =  chem(i,k,j,p_pcg2_b_c)                        &
-        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*7.605
-        chem(i,k,j,p_pcg1_f_c)  =  chem(i,k,j,p_pcg1_f_c)                        &
-        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*1.17
-        chem(i,k,j,p_pcg2_f_c)  =  chem(i,k,j,p_pcg2_f_c)                        &
-        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*7.605
-        chem(i,k,j,p_pcg1_b_o)  =  chem(i,k,j,p_pcg1_b_o)                        &
-        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*0.40
-        chem(i,k,j,p_pcg2_b_o)  =  chem(i,k,j,p_pcg2_b_o)                        &
-        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*2.60
-        chem(i,k,j,p_pcg1_f_o)  =  chem(i,k,j,p_pcg1_f_o)                        &
-        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*0.08
-        chem(i,k,j,p_pcg2_f_o)  =  chem(i,k,j,p_pcg2_f_o)                        &
-        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*0.52
-
-
+!lm Do not add bb emissions here 
+!!Use OM/OC of 1.25 for fossil and OM:OC of 1.57 for biomass
+!! O:C=0.06,H:C=1.8, N:C=0.02 for fossil : OM/OC=(16*0.06+12+14*0.02+12)/12=1.25
+!!O:C=0.3 H:C=1.8, N:C=0.02 for biomass, OM/OC=1.57 for biomass
+!
+!        chem(i,k,j,p_pcg1_b_c)  =  chem(i,k,j,p_pcg1_b_c)                        &
+!        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*1.17
+!        chem(i,k,j,p_pcg2_b_c)  =  chem(i,k,j,p_pcg2_b_c)                        &
+!        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*7.605
+!        chem(i,k,j,p_pcg1_f_c)  =  chem(i,k,j,p_pcg1_f_c)                        &
+!        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*1.17
+!        chem(i,k,j,p_pcg2_f_c)  =  chem(i,k,j,p_pcg2_f_c)                        &
+!        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*7.605
+!        chem(i,k,j,p_pcg1_b_o)  =  chem(i,k,j,p_pcg1_b_o)                        &
+!        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*0.40
+!        chem(i,k,j,p_pcg2_b_o)  =  chem(i,k,j,p_pcg2_b_o)                        &
+!        +(emis_ant(i,k,j,p_e_orgi_bb)/1.57+emis_ant(i,k,j,p_e_orgj_bb)/1.57)*conv3*2.60
+!        chem(i,k,j,p_pcg1_f_o)  =  chem(i,k,j,p_pcg1_f_o)                        &
+!        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*0.08
+!        chem(i,k,j,p_pcg2_f_o)  =  chem(i,k,j,p_pcg2_f_o)                        &
+!        +(emis_ant(i,k,j,p_e_orgi_a)/1.25+emis_ant(i,k,j,p_e_orgj_a)/1.25)*conv3*0.52
+!lm
              end do
           end do
        end do
@@ -1563,6 +1676,9 @@ CONTAINS
             ltng_temp_upper=config_flags%ltng_temp_upper,                 &
             ltng_temp_lower=config_flags%ltng_temp_lower,                 &
             cellcount_method=config_flags%cellcount_method,               &
+!lm
+            cldfra_cup=cldfra_cup, htop=htop,                             &
+!lm
           ! Order dependent args for domain, mem, and tile dims
             ids=ids, ide=ide, jds=jds, jde=jde, kds=kds, kde=kde,         &
             ims=ims, ime=ime, jms=jms, jme=jme, kms=kms, kme=kme,         &

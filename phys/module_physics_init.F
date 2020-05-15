@@ -856,7 +856,8 @@ integer myproc
 
    icloud_cu = 0
    IF ( config_flags%cu_rad_feedback ) THEN
-      IF ( config_flags%cu_physics == kfetascheme ) THEN
+      IF ( config_flags%cu_physics == kfetascheme .OR. &
+         config_flags%cu_physics == KFCUPSCHEME ) THEN
          icloud_cu = 2
       ELSE IF ( config_flags%cu_physics == gfscheme .OR. &
                 config_flags%cu_physics == g3scheme .OR. &
@@ -1808,7 +1809,9 @@ integer myproc
 !   Interpolation is done on domain 1 only
 
 #if (EM_CORE==1) 
-   IF ( config_flags%o3input .EQ. 2 .AND. id .EQ. 1 ) THEN
+!lm   IF ( config_flags%o3input .EQ. 2 .AND. id .EQ. 1 ) THEN
+   IF ( ( config_flags%o3input .EQ. 2 .OR. config_flags%o3input .EQ. 3 ) .AND. id .EQ. 1 ) THEN
+!lm
 #else
    IF ( config_flags%o3input .EQ. 2 ) THEN
 #endif

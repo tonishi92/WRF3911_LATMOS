@@ -1,4 +1,8 @@
 MODULE module_aerosols_sorgam_vbs
+!lm 2015/07: I add to include wet_dep_bc here even if I only need it for MOSAIC,
+!            since the same wet scavenging routine wetscav is called by the MOSAIC
+!            and SORGAM drivers
+!
 !
 ! 10/08/2014: This module is a modified version of the "module_aerosols_soa_vbs" based on the work of Ahmadov et al. (2012). 
 ! This module treats the major aerosol processes related to chemical option CB05-MADE/VBS, which is implemented by NCSU
@@ -8304,6 +8308,12 @@ END SUBROUTINE sorgam_vbs_source_du
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
                qlsink,precr,preci,precs,precg,qsrflx,                      &
                gas_aqfrac, numgas_aqfrac,                                  &
+!!lm
+!               wet_dep_bc,                                                 &
+!!lm
+!ND add all the species for wet deposition
+               wetd_ct,                                                    &
+!ND
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -8353,6 +8363,14 @@ END SUBROUTINE sorgam_vbs_source_du
                                                     rho_phy,cldfra
    REAL, DIMENSION( ims:ime, jms:jme, num_chem ),          &
          INTENT(OUT ) ::                                qsrflx ! column change due to scavening
+!!lm
+!   REAL, DIMENSION( ims:ime, jms:jme),          &
+!         INTENT(OUT ) :: wet_dep_bc
+!!lm
+!ND add all the species for wet deposition
+   REAL, DIMENSION( ims:ime, 1, jms:jme, num_chem ),          &
+         INTENT(INOUT ) ::   wetd_ct
+!ND
 
    call wetscav (id,ktau,dtstep,ktauc,config_flags,                     &
         dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,            &
@@ -8364,6 +8382,12 @@ END SUBROUTINE sorgam_vbs_source_du
         volumcen_sect, volumlo_sect, volumhi_sect,                      &
         waterptr_aer, dens_water_aer,                                   &
         scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow, &
+!!lm
+!        wet_dep_bc,                                                      &
+!!lm
+!ND add all the species for wet deposition
+        wetd_ct,                                                        &
+!ND
         ids,ide, jds,jde, kds,kde,                                      &
         ims,ime, jms,jme, kms,kme,                                      &
         its,ite, jts,jte, kts,kte                                       )

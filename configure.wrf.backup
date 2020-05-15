@@ -248,14 +248,14 @@ CC_TOOLS_CFLAGS = -DNMM_CORE=$(WRF_NMM_CORE)
                       $(WRF_SRC_ROOT_DIR)/frame/pack_utils.o 
 
  LIB_EXTERNAL    = \
-                      -L$(WRF_SRC_ROOT_DIR)/external/io_netcdf -lwrfio_nf -L/opt/netcdf42/ifort/lib -lnetcdff -lnetcdf   -L$(WRF_SRC_ROOT_DIR)/external/io_grib2 -lio_grib2 -L/usr/lib64 -ljasper  -L/opt/hdf5/1.8.14/ifort/lib -lhdf5_fortran -lhdf5 -lm -lz
+                      -L/opt/hdf5/1.8.14/ifort/lib -lhdf5_fortran -lhdf5 -lm -lz -L$(WRF_SRC_ROOT_DIR)/external/io_netcdf -lwrfio_nf -L/opt/netcdf43/ifort/lib -lnetcdff -lnetcdf   -L$(WRF_SRC_ROOT_DIR)/external/io_grib2 -lio_grib2 -L/usr/lib64 -ljasper  
 
 LIB             =    $(LIB_BUNDLED) $(LIB_EXTERNAL) $(LIB_LOCAL) $(LIB_WRF_HYDRO)
 LDFLAGS         =    $(OMP) $(FCFLAGS) $(LDFLAGS_LOCAL) 
 ENVCOMPDEFS     =     -DWRF_CHEM -DBUILD_CHEM=1 -DWRF_KPP
 WRF_CHEM	=	1 
 CPPFLAGS        =    $(ARCHFLAGS) $(ENVCOMPDEFS) -I$(LIBINCLUDE) $(TRADFLAG) 
-NETCDFPATH      =    /opt/netcdf42/ifort
+NETCDFPATH      =    /opt/netcdf43/ifort
 HDF5PATH        =    /opt/hdf5/1.8.14/ifort
 WRFPLUSPATH     =    
 RTTOVPATH       =    
